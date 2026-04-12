@@ -36,6 +36,7 @@ from pdf_app.services.operation_history import OperationHistoryService
 from pdf_app.services.search_service import SearchService
 from pdf_app.state.mode_state import AppMode
 from pdf_app.ui.dialogs.merge_dialog import MergeDialog
+from pdf_app.ui.dialogs.shortcut_guide_dialog import ShortcutGuideDialog
 from pdf_app.ui.edit_mode_ui import EditorWorkspace
 from pdf_app.ui.home_screen import HomeScreen
 from pdf_app.ui.right_tool_pane import RightToolPane
@@ -126,6 +127,7 @@ class MainWindow(QMainWindow):
         menu_bar = self.menuBar()
         file_menu = menu_bar.addMenu("File")
         edit_menu = menu_bar.addMenu("Edit")
+        help_menu = menu_bar.addMenu("Help")
 
         self.open_action = QAction("Open PDF", self)
         self.merge_action = QAction("Merge PDFs", self)
@@ -133,6 +135,7 @@ class MainWindow(QMainWindow):
         self.exit_action = QAction("Exit", self)
         self.undo_action = QAction("Undo Last Structural Edit", self)
         self.redo_action = QAction("Redo Structural Edit", self)
+        self.shortcuts_guide_action = QAction("Keyboard Shortcuts", self)
 
         file_menu.addAction(self.open_action)
         file_menu.addAction(self.merge_action)
@@ -142,6 +145,7 @@ class MainWindow(QMainWindow):
 
         edit_menu.addAction(self.undo_action)
         edit_menu.addAction(self.redo_action)
+        help_menu.addAction(self.shortcuts_guide_action)
 
     def _build_shortcuts(self) -> None:
         self.open_action.setShortcuts(QKeySequence.StandardKey.Open)
@@ -219,6 +223,7 @@ class MainWindow(QMainWindow):
         self.exit_action.triggered.connect(self.close)
         self.undo_action.triggered.connect(self.undo_last_operation)
         self.redo_action.triggered.connect(self.redo_last_operation)
+        self.shortcuts_guide_action.triggered.connect(self.show_shortcut_guide)
 
         self.status_widget.page_jump_requested.connect(self.jump_to_page)
 
@@ -600,6 +605,10 @@ class MainWindow(QMainWindow):
         self.banner_label.setText(message)
         self.status_widget.update_state(message)
         self._banner_timer.start(5000)
+
+    def show_shortcut_guide(self) -> None:
+        dialog = ShortcutGuideDialog(self)
+        dialog.exec()
 
     def focus_search(self) -> None:
         if not self.document_manager.state.has_document:

@@ -12,6 +12,11 @@
   - Affected area/module: `pdf_app/services/search_service.py`, `pdf_app/ui/viewer_mode_ui.py`
   - Suggested next action: Add lightweight match highlighting in a later polish pass.
 
+- Local macOS packaging is not yet release-signed
+  - Description: The PyInstaller packaging path is suitable for local `.app` build/testing, but codesigning, notarization, and installer-level distribution polish are still future work.
+  - Affected area/module: Packaging config, build scripts, release process
+  - Suggested next action: Address during dedicated release/distribution polish.
+
 - Undo/redo is snapshot-based
   - Description: Structural edit undo/redo works for reorder, rotate, and delete, but uses working-copy snapshots rather than command-granular history.
   - Affected area/module: `pdf_app/services/operation_history.py`, `pdf_app/ui/main_window.py`
@@ -37,6 +42,8 @@
 - Viewer search controls are now collapsible and show clearer result-position guidance during navigation.
 - Recent files are now stored persistently across restarts and missing/unavailable entries are handled without crashing the Home screen flow.
 - Essential keyboard shortcuts now cover core open/save/find/full-screen actions plus practical Viewer and Editor navigation/edit workflows.
+- A Help-menu shortcut guide now exposes the implemented keyboard shortcuts without adding a larger shortcut management system.
+- A macOS-first local packaging workflow now exists for building and launching a testable `.app` bundle outside the dev run command.
 
 ## Maintenance note
 

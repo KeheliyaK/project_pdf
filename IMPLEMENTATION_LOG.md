@@ -72,6 +72,16 @@
 - Added focus handling for the Viewer document surface so page widgets and the scroll viewport can own focus cleanly when the user interacts with the main document view.
 - Preserved the existing soft-scroll behavior, search navigation, password-protected PDF flow, undo/redo, and Save As behavior while adding page-wise arrow navigation.
 
+## Phase 2 - Post-MVP hardening and release preparation (pass 4)
+
+- Added a macOS-first PyInstaller packaging path with `pdf_app_mvp.spec`, a dedicated packaging requirements file, and a repeatable local build script.
+- Kept packaging configuration intentionally modest and release-oriented for local `.app` generation instead of overbuilding cross-platform automation.
+- Updated application metadata in the Qt entry point so packaged builds have stable application name, display name, version, and organization settings.
+- Added a `Help > Keyboard Shortcuts` modal dialog that documents the currently implemented shortcuts grouped by Global, Viewer, and Editor contexts.
+- Kept the shortcut guide static and maintainable rather than introducing a new shortcut registry system.
+- Preserved normal PDF open, password-protected PDF flow, Viewer/Editor modes, search, recent-file persistence, keyboard shortcuts, dirty tracking, and Save As behavior while preparing packaging.
+- Confirmed the current verification baseline in the project venv: `./.venv/bin/pytest` passes and `./.venv/bin/python -m compileall pdf_app tests` passes.
+
 ## Phase and requirement coverage
 
 - Covered the MVP boundary through Phase 5 only
@@ -85,5 +95,5 @@
 ## Deferred items
 
 - Annotation tools and annotation UI
-- Packaging polish
+- Packaging polish, codesigning, notarization, and installer work
 - Advanced in-page search highlighting

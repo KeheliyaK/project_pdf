@@ -4,10 +4,10 @@
 PDF App MVP
 
 ## Current phase
-Phase 2 hardening and release preparation - pass 3
+Phase 2 hardening and release preparation - pass 4
 
 ## MVP status
-Frozen baseline with pass 3 hardening applied plus focused Viewer navigation update
+Frozen baseline with pass 4 hardening applied
 
 ## What is working now
 
@@ -19,6 +19,8 @@ Frozen baseline with pass 3 hardening applied plus focused Viewer navigation upd
 - Editor page-organization workspace with multi-selection and drag-and-drop reorder
 - Structural operations: reorder, delete, rotate selected, rotate all, extract, split, and dedicated merge workflow
 - Conventional keyboard shortcuts now cover core open/save/find, full screen, page navigation, search navigation, zoom, undo/redo, and stable editor selection/delete actions
+- Help menu now includes a simple in-app keyboard shortcut guide grouped by context
+- A repeatable macOS-first packaging path now exists for local `.app` builds and manual distribution testing
 - Save As first export flow with working-copy editing, dirty tracking, unsaved-change prompts, and write-error handling
 - Undo/redo foundation for structural edits: reorder, rotate, and delete
 - Password-protected PDFs can be opened after prompting for a password, and protected PDFs can be imported into merge flow after unlock
@@ -40,17 +42,19 @@ Frozen baseline with pass 3 hardening applied plus focused Viewer navigation upd
 - Made the Viewer search pane collapsible and improved active-result feedback in the Tool Pane and status bar
 - Added essential keyboard shortcuts for core Viewer and Editor workflows without changing the existing document model or password-protected PDF flow
 - Added left/right arrow page-wise navigation in Viewer mode, scoped to the main document view so thumbnails and text inputs keep their existing behavior
+- Added a basic Help-menu shortcut guide and a practical PyInstaller-based macOS packaging path for local build/testing
 
 ## Current non-blocking limitations
 
 - Search panel collapse/expand control could use minor icon refinement in a later UI polish pass
 - Search results do not visually highlight the exact in-page match region
+- Local macOS packaging is for manual testing only and does not yet include codesigning, notarization, or installer polish
 - Undo/redo is snapshot-based rather than command-granular
 
 ## Immediate next phase after freeze
 
 Post-MVP polish and hardening:
-- packaging/release preparation for desktop distribution
+- release validation and distribution polish
 
 ## Maintenance note
 

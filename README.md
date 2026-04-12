@@ -25,13 +25,13 @@ The MVP intentionally stops before annotation tools.
 - Structural operations: reorder, delete, rotate selected, rotate all, extract selected pages, split by range, and merge PDFs
 - Password-protected PDF open support with password prompt, plus protected-PDF import support for merge workflow
 - Keyboard shortcuts for common workflows such as open, save as, find, search next/previous, page navigation, zoom, full screen, undo/redo, and core editor selection/delete actions
+- Help menu entry for a simple in-app keyboard shortcut guide
 - Save As first export flow with working-copy editing, dirty tracking, unsaved-changes prompts, and write-error handling
 - Undo/redo foundation for structural edits: reorder, rotate, and delete
 
 ## Deferred / post-MVP features
 
 - Annotation tools and annotation UI
-- Keyboard shortcuts and packaging polish
 - More advanced in-page search highlighting and search-panel polish
 
 ## Setup
@@ -49,6 +49,31 @@ source .venv/bin/activate
 python -m pdf_app.app.main
 ```
 
+## Package For macOS
+
+This repository now includes a macOS-first local packaging path using PyInstaller.
+
+1. Install the packaging dependency set:
+
+```bash
+source .venv/bin/activate
+pip install -r requirements-packaging.txt
+```
+
+2. Build the app bundle:
+
+```bash
+bash scripts/build_macos_app.sh
+```
+
+3. Launch the packaged app for manual testing:
+
+```bash
+open "dist/PDF App MVP.app"
+```
+
+The generated bundle is intended for local distribution and manual testing. It is not yet codesigned, notarized, or wrapped in an installer.
+
 ## Test
 
 ```bash
@@ -62,6 +87,7 @@ python3 -m compileall pdf_app tests
 - Search navigation jumps to the correct page/result, but does not visually mark the exact in-page match
 - Search panel collapse/expand control icon polish is intentionally deferred
 - Undo/redo is snapshot-based for the current structural edit set and is not command-granular
+- The macOS packaging path is intended for local testing and is not yet signed or notarized
 
 ## Project structure overview
 
@@ -82,4 +108,5 @@ tests/            Minimal PDF operation tests
 - The app edits a temporary working copy and does not modify the original PDF in place.
 - Password-protected PDFs are unlocked into the temporary working copy after the password is accepted, so Save As exports the currently unlocked working copy.
 - Recent files are persisted locally across restarts, and stale entries are removed if a file is missing or no longer accessible.
+- A simple keyboard shortcut reference is available from `Help > Keyboard Shortcuts`.
 - This repository should be treated as the frozen MVP baseline for the next phase of work.
