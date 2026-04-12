@@ -23,8 +23,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from pdf_app.annotations.models import AnnotationRect, AnnotationType
 from pdf_app.pdf_ops.pdf_operation_service import PdfOperationService
 from pdf_app.pdf_render.render_service import PdfRenderService
+from pdf_app.services.annotation_service import AnnotationService
 from pdf_app.services.pdf_access_service import (
     PdfAccessService,
     PdfInvalidPasswordError,
@@ -34,6 +36,7 @@ from pdf_app.services.document_manager import DocumentManager
 from pdf_app.services.export_service import ExportService
 from pdf_app.services.operation_history import OperationHistoryService
 from pdf_app.services.search_service import SearchService
+from pdf_app.services.unified_history_service import UnifiedHistoryService
 from pdf_app.state.mode_state import AppMode
 from pdf_app.ui.dialogs.merge_dialog import MergeDialog
 from pdf_app.ui.dialogs.shortcut_guide_dialog import ShortcutGuideDialog
@@ -58,7 +61,11 @@ class MainWindow(QMainWindow):
         self.export_service = ExportService()
         self.search_service = SearchService()
         self.history_service = OperationHistoryService()
+        self.unified_history_service = UnifiedHistoryService()
+        self.annotation_service = AnnotationService()
         self.pdf_access_service = PdfAccessService()
+        self.active_annotation_tool: AnnotationType | None = None
+        self.selected_annotation_ids: set[str] = set()
 
         self.mode = AppMode.HOME
         self._banner_timer = QTimer(self)
@@ -72,6 +79,8 @@ class MainWindow(QMainWindow):
         self.right_pane = RightToolPane()
         self.home_screen = HomeScreen()
         self.viewer_workspace = ViewerWorkspace(self.render_service)
+        self.viewer_workspace.set_annotation_provider(self._annotations_for_page)
+        self.viewer_workspace.set_selected_annotation_provider(self._selected_annotations_for_page)
         self.editor_workspace = EditorWorkspace(self.render_service)
         self.banner_label = QLabel("")
         self.banner_label.setStyleSheet("background:#d8e6f5; color:#243447; padding:8px;")
@@ -82,6 +91,7 @@ class MainWindow(QMainWindow):
         self._connect_signals()
         self._set_document_controls_enabled(False)
         self._update_history_ui()
+        self._update_annotation_ui()
         self.right_pane.show_placeholder()
         self._refresh_home_recents()
 
@@ -133,8 +143,8 @@ class MainWindow(QMainWindow):
         self.merge_action = QAction("Merge PDFs", self)
         self.save_as_action = QAction("Save As", self)
         self.exit_action = QAction("Exit", self)
-        self.undo_action = QAction("Undo Last Structural Edit", self)
-        self.redo_action = QAction("Redo Structural Edit", self)
+        self.undo_action = QAction("Undo", self)
+        self.redo_action = QAction("Redo", self)
         self.shortcuts_guide_action = QAction("Keyboard Shortcuts", self)
 
         file_menu.addAction(self.open_action)
@@ -204,14 +214,31 @@ class MainWindow(QMainWindow):
         self.select_all_pages_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
         self.select_all_pages_shortcut.activated.connect(self.select_all_editor_pages)
 
+        self.highlight_tool_shortcut = QShortcut(QKeySequence("H"), self.viewer_workspace)
+        self.highlight_tool_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.highlight_tool_shortcut.activated.connect(
+            lambda: self._activate_annotation_tool_shortcut(AnnotationType.HIGHLIGHT)
+        )
+        self.underline_tool_shortcut = QShortcut(QKeySequence("U"), self.viewer_workspace)
+        self.underline_tool_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.underline_tool_shortcut.activated.connect(
+            lambda: self._activate_annotation_tool_shortcut(AnnotationType.UNDERLINE)
+        )
+        self.clear_annotation_tool_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Escape), self.viewer_workspace)
+        self.clear_annotation_tool_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.clear_annotation_tool_shortcut.activated.connect(self._clear_annotation_tool_shortcut)
+        self.delete_annotation_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Delete), self.viewer_workspace)
+        self.delete_annotation_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.delete_annotation_shortcut.activated.connect(self.delete_selected_annotations)
+
     def _connect_signals(self) -> None:
         self.toolbar_widget.open_requested.connect(self.open_pdf_dialog)
         self.toolbar_widget.merge_requested.connect(self.open_merge_workflow)
         self.toolbar_widget.save_as_requested.connect(self.save_as_dialog)
         self.toolbar_widget.viewer_mode_requested.connect(lambda: self.switch_mode(AppMode.VIEWER))
         self.toolbar_widget.editor_mode_requested.connect(self._switch_to_editor)
-        self.toolbar_widget.undo_requested.connect(self.undo_last_operation)
-        self.toolbar_widget.redo_requested.connect(self.redo_last_operation)
+        self.toolbar_widget.undo_requested.connect(self.undo_last_action)
+        self.toolbar_widget.redo_requested.connect(self.redo_last_action)
         self.toolbar_widget.zoom_in_requested.connect(lambda: self.adjust_zoom(10))
         self.toolbar_widget.zoom_out_requested.connect(lambda: self.adjust_zoom(-10))
         self.toolbar_widget.fullscreen_requested.connect(self._toggle_fullscreen)
@@ -221,8 +248,8 @@ class MainWindow(QMainWindow):
         self.merge_action.triggered.connect(self.open_merge_workflow)
         self.save_as_action.triggered.connect(self.save_as_dialog)
         self.exit_action.triggered.connect(self.close)
-        self.undo_action.triggered.connect(self.undo_last_operation)
-        self.redo_action.triggered.connect(self.redo_last_operation)
+        self.undo_action.triggered.connect(self.undo_last_action)
+        self.redo_action.triggered.connect(self.redo_last_action)
         self.shortcuts_guide_action.triggered.connect(self.show_shortcut_guide)
 
         self.status_widget.page_jump_requested.connect(self.jump_to_page)
@@ -234,16 +261,22 @@ class MainWindow(QMainWindow):
 
         self.left_pane.itemClicked.connect(self._thumbnail_clicked)
         self.viewer_workspace.page_clicked.connect(self._page_clicked)
+        self.viewer_workspace.page_position_clicked.connect(self._place_annotation_from_click)
+        self.viewer_workspace.page_region_selected.connect(self._place_annotation_from_drag)
         self.viewer_workspace.page_focus_changed.connect(self._viewer_page_focus_changed)
         self.editor_workspace.order_changed.connect(self._reorder_pages)
         self.editor_workspace.selection_changed_pages.connect(self._editor_selection_changed)
-        self.editor_workspace.undo_requested.connect(self.undo_last_operation)
-        self.editor_workspace.redo_requested.connect(self.redo_last_operation)
+        self.editor_workspace.undo_requested.connect(self.undo_last_action)
+        self.editor_workspace.redo_requested.connect(self.redo_last_action)
 
         self.right_pane.viewer_pane.search_requested.connect(self.perform_search)
         self.right_pane.viewer_pane.previous_requested.connect(self.search_service.previous_result)
         self.right_pane.viewer_pane.next_requested.connect(self.search_service.next_result)
         self.right_pane.viewer_pane.result_activated.connect(self.search_service.activate_index)
+        self.right_pane.viewer_pane.annotation_tool_selected.connect(self.set_active_annotation_tool)
+        self.right_pane.viewer_pane.annotation_tool_cleared.connect(self.clear_active_annotation_tool)
+        self.right_pane.viewer_pane.annotation_reset_requested.connect(self.reset_document_annotations)
+        self.right_pane.viewer_pane.annotation_delete_requested.connect(self.delete_selected_annotations)
         self.right_pane.viewer_pane.rotate_selected_requested.connect(self.rotate_current_or_selected_pages)
         self.right_pane.viewer_pane.rotate_all_requested.connect(self.rotate_all_pages)
 
@@ -255,6 +288,8 @@ class MainWindow(QMainWindow):
 
         self.search_service.results_updated.connect(self.right_pane.viewer_pane.set_results)
         self.search_service.active_result_changed.connect(self._activate_search_result)
+        self.annotation_service.annotations_changed.connect(self.viewer_workspace.refresh_visible_pages)
+        self.annotation_service.annotations_changed.connect(self._update_annotation_ui)
         self.document_manager.document_changed.connect(self._refresh_title)
         self.document_manager.dirty_changed.connect(self._update_dirty_state)
 
@@ -279,7 +314,11 @@ class MainWindow(QMainWindow):
         try:
             if not self._open_document_with_password_prompt(source_path):
                 return
+            self.annotation_service.open_document(self.document_manager.state.working_path, force_reset=True)
+            self.selected_annotation_ids.clear()
+            self.clear_active_annotation_tool()
             self.history_service.clear()
+            self.unified_history_service.clear()
             self.render_service.clear_document_cache(self.document_manager.state.working_path)
             self._reload_document_views()
             self.switch_mode(AppMode.VIEWER)
@@ -301,8 +340,11 @@ class MainWindow(QMainWindow):
         self.status_widget.update_zoom(state.zoom_percent)
         self.search_service.clear()
         self._set_document_controls_enabled(True)
+        self.right_pane.viewer_pane.set_annotation_tool(self.active_annotation_tool)
+        self._sync_annotation_tool_state()
         self._editor_selection_changed([])
         self._update_history_ui()
+        self._update_annotation_ui()
 
     def _load_thumbnails(self) -> None:
         state = self.document_manager.state
@@ -365,6 +407,60 @@ class MainWindow(QMainWindow):
 
     def _page_clicked(self, page_index: int) -> None:
         self.jump_to_page(page_index)
+
+    def _place_annotation_from_click(self, page_index: int, document_x: float, document_y: float) -> None:
+        if self.mode != AppMode.VIEWER:
+            return
+        self.jump_to_page(page_index)
+        if self.active_annotation_tool is None:
+            self._select_annotation_at(page_index, document_x, document_y)
+            return
+        if self.active_annotation_tool != AnnotationType.TEXT_BOX:
+            return
+        text_content, ok = QInputDialog.getText(self, "Add text box", "Text box content:")
+        if not ok or not text_content.strip():
+            return
+        rect = self._annotation_rect_at(page_index, document_x, document_y, width=180.0, height=72.0)
+        self.annotation_service.add_annotation(
+            AnnotationType.TEXT_BOX,
+            page_index=page_index,
+            rect=rect,
+            text_content=text_content.strip(),
+        )
+        self.selected_annotation_ids.clear()
+        self.unified_history_service.record_action("annotation", "Add text box")
+        self._update_history_ui()
+        self._mark_annotations_unsaved("Text box added. Session annotations are not embedded by Save As yet.")
+
+    def _place_annotation_from_drag(
+        self,
+        page_index: int,
+        start_x: float,
+        start_y: float,
+        end_x: float,
+        end_y: float,
+    ) -> None:
+        if self.mode != AppMode.VIEWER or self.active_annotation_tool not in {
+            AnnotationType.HIGHLIGHT,
+            AnnotationType.UNDERLINE,
+        }:
+            return
+        self.jump_to_page(page_index)
+        rect = self._annotation_rect_from_drag(page_index, start_x, start_y, end_x, end_y)
+        if rect is None:
+            return
+        self.annotation_service.add_annotation(
+            self.active_annotation_tool,
+            page_index=page_index,
+            rect=rect,
+        )
+        self.selected_annotation_ids.clear()
+        self.unified_history_service.record_action("annotation", f"Add {self.active_annotation_tool.value}")
+        self._update_history_ui()
+        message = "Highlight added. Session annotations are not embedded by Save As yet."
+        if self.active_annotation_tool == AnnotationType.UNDERLINE:
+            message = "Underline added. Session annotations are not embedded by Save As yet."
+        self._mark_annotations_unsaved(message)
 
     def _viewer_page_focus_changed(self, page_index: int) -> None:
         state = self.document_manager.state
@@ -514,31 +610,64 @@ class MainWindow(QMainWindow):
             return
         try:
             self.document_manager.save_as(output_path)
-            self.status_widget.update_state(f"Saved to {Path(output_path).name}")
-            self._show_banner("Saved working copy with Save As.")
+            if self.annotation_service.has_annotations():
+                self.document_manager.set_dirty(True)
+                self.status_widget.update_state(f"Saved PDF to {Path(output_path).name}; session annotations are not embedded.")
+                self._show_banner("Saved PDF working copy. Session annotations still need future export support.")
+            else:
+                self.status_widget.update_state(f"Saved to {Path(output_path).name}")
+                self._show_banner("Saved working copy with Save As.")
         except Exception as exc:
             QMessageBox.critical(self, "Save failed", f"Could not write the PDF.\n\n{exc}")
 
-    def undo_last_operation(self) -> None:
+    def undo_last_action(self) -> None:
         if not self.document_manager.state.has_document:
             return
-        description = self.history_service.undo(self.document_manager.working_path())
-        if description is None:
+        history_entry = self.unified_history_service.consume_undo()
+        if history_entry is None:
             return
-        self.document_manager.refresh_page_count()
-        self.document_manager.set_dirty(True)
-        self._reload_document_views()
+        description: str | None = None
+        if history_entry.domain == "structural":
+            description = self.history_service.undo(self.document_manager.working_path())
+            if description is not None:
+                self.document_manager.refresh_page_count()
+                self.document_manager.set_dirty(True)
+                self._reload_document_views()
+        elif history_entry.domain == "annotation":
+            description = self.annotation_service.undo()
+            if description is not None:
+                self.selected_annotation_ids.clear()
+                self.document_manager.set_dirty(True)
+        if description is None:
+            self.unified_history_service.push_undo(history_entry)
+            return
+        self.unified_history_service.push_redo(history_entry)
+        self._update_history_ui()
         self._show_banner(f"Undid: {description}")
 
-    def redo_last_operation(self) -> None:
+    def redo_last_action(self) -> None:
         if not self.document_manager.state.has_document:
             return
-        description = self.history_service.redo(self.document_manager.working_path())
-        if description is None:
+        history_entry = self.unified_history_service.consume_redo()
+        if history_entry is None:
             return
-        self.document_manager.refresh_page_count()
-        self.document_manager.set_dirty(True)
-        self._reload_document_views()
+        description: str | None = None
+        if history_entry.domain == "structural":
+            description = self.history_service.redo(self.document_manager.working_path())
+            if description is not None:
+                self.document_manager.refresh_page_count()
+                self.document_manager.set_dirty(True)
+                self._reload_document_views()
+        elif history_entry.domain == "annotation":
+            description = self.annotation_service.redo()
+            if description is not None:
+                self.selected_annotation_ids.clear()
+                self.document_manager.set_dirty(True)
+        if description is None:
+            self.unified_history_service.push_redo(history_entry)
+            return
+        self.unified_history_service.push_undo(history_entry)
+        self._update_history_ui()
         self._show_banner(f"Redid: {description}")
 
     def _reorder_pages(self, order: list[int]) -> None:
@@ -577,8 +706,11 @@ class MainWindow(QMainWindow):
             self.document_manager.refresh_page_count()
             self.document_manager.set_dirty(True)
             self._reload_document_views()
+            if track_history:
+                self.unified_history_service.record_action("structural", description)
             if self.mode == AppMode.EDITOR:
                 self.switch_mode(AppMode.EDITOR)
+            self._update_history_ui()
             self._show_banner(banner_message or f"{description} complete.")
         except Exception as exc:
             if track_history and not operation_committed:
@@ -605,6 +737,130 @@ class MainWindow(QMainWindow):
         self.banner_label.setText(message)
         self.status_widget.update_state(message)
         self._banner_timer.start(5000)
+
+    def set_active_annotation_tool(self, annotation_type: AnnotationType) -> None:
+        self.active_annotation_tool = annotation_type
+        self.selected_annotation_ids.clear()
+        self.right_pane.viewer_pane.set_annotation_tool(annotation_type)
+        self._sync_annotation_tool_state()
+        self._update_annotation_ui()
+        self.viewer_workspace.focus_document_view()
+
+    def clear_active_annotation_tool(self) -> None:
+        self.active_annotation_tool = None
+        self.right_pane.viewer_pane.set_annotation_tool(None)
+        self._sync_annotation_tool_state()
+        self._update_annotation_ui()
+
+    def _annotations_for_page(self, page_index: int):
+        return self.annotation_service.annotations_for_page(page_index)
+
+    def _selected_annotations_for_page(self, page_index: int) -> set[str]:
+        return {
+            annotation.id
+            for annotation in self.annotation_service.annotations_for_page(page_index)
+            if annotation.id in self.selected_annotation_ids
+        }
+
+    def _mark_annotations_unsaved(self, message: str) -> None:
+        self.document_manager.set_dirty(True)
+        self._show_banner(message)
+
+    def _annotation_rect_at(
+        self,
+        page_index: int,
+        document_x: float,
+        document_y: float,
+        width: float,
+        height: float,
+    ) -> AnnotationRect:
+        metrics = self.viewer_workspace.page_metrics[page_index]
+        x = min(max(0.0, document_x - (width / 2.0)), max(metrics.width - width, 0.0))
+        y = min(max(0.0, document_y - (height / 2.0)), max(metrics.height - height, 0.0))
+        clamped_width = min(width, metrics.width)
+        clamped_height = min(height, metrics.height)
+        return AnnotationRect(x=x, y=y, width=clamped_width, height=clamped_height)
+
+    def _annotation_rect_from_drag(
+        self,
+        page_index: int,
+        start_x: float,
+        start_y: float,
+        end_x: float,
+        end_y: float,
+    ) -> AnnotationRect | None:
+        metrics = self.viewer_workspace.page_metrics[page_index]
+        x = max(0.0, min(start_x, end_x))
+        y = max(0.0, min(start_y, end_y))
+        max_x = min(metrics.width, max(start_x, end_x))
+        max_y = min(metrics.height, max(start_y, end_y))
+        width = max_x - x
+        height = max_y - y
+        if self.active_annotation_tool == AnnotationType.UNDERLINE:
+            if width < 8.0:
+                return None
+            line_height = min(max(height, 2.0), 6.0)
+            line_y = min(max(0.0, max_y - line_height), max(metrics.height - line_height, 0.0))
+            return AnnotationRect(x=x, y=line_y, width=width, height=line_height)
+        if width < 8.0 or height < 8.0:
+            return None
+        return AnnotationRect(x=x, y=y, width=width, height=height)
+
+    def _sync_annotation_tool_state(self) -> None:
+        drag_enabled = self.active_annotation_tool in {AnnotationType.HIGHLIGHT, AnnotationType.UNDERLINE}
+        self.viewer_workspace.set_drag_selection_enabled(drag_enabled)
+        self.viewer_workspace.set_annotation_cursor_enabled(drag_enabled)
+
+    def _update_annotation_ui(self) -> None:
+        valid_annotation_ids = {annotation.id for annotation in self.annotation_service.all_annotations()}
+        self.selected_annotation_ids.intersection_update(valid_annotation_ids)
+        visible_annotations = self._visible_launch_annotations()
+        self.right_pane.viewer_pane.set_annotation_management_state(
+            bool(visible_annotations),
+            len(self.selected_annotation_ids),
+        )
+        self.viewer_workspace.refresh_visible_pages()
+
+    def reset_document_annotations(self) -> None:
+        if self.mode != AppMode.VIEWER or not self.document_manager.state.has_document:
+            return
+        if not self._visible_launch_annotations():
+            return
+        reply = QMessageBox.question(
+            self,
+            "Reset annotations",
+            "Remove all session highlight and underline annotations from the current document?",
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        cleared_count = self.annotation_service.clear_annotations_by_type(
+            {AnnotationType.HIGHLIGHT, AnnotationType.UNDERLINE},
+            description="Reset highlight and underline annotations",
+        )
+        if cleared_count:
+            self.selected_annotation_ids.clear()
+            self.unified_history_service.record_action("annotation", "Reset highlight and underline annotations")
+            self._update_history_ui()
+            self._mark_annotations_unsaved(
+                "Reset document highlight and underline annotations. Save As still does not embed annotations yet."
+            )
+
+    def delete_selected_annotations(self) -> None:
+        if self.mode != AppMode.VIEWER or not self.document_manager.state.has_document or self._has_text_input_focus():
+            return
+        deletable_ids = self._deletable_selected_annotation_ids()
+        if not deletable_ids:
+            return
+        deleted_count = self.annotation_service.delete_annotations(deletable_ids)
+        if deleted_count:
+            self.selected_annotation_ids.clear()
+            description = "Delete annotation" if deleted_count == 1 else "Delete annotations"
+            self.unified_history_service.record_action("annotation", description)
+            self._update_history_ui()
+            noun = "annotation" if deleted_count == 1 else "annotations"
+            self._mark_annotations_unsaved(
+                f"Deleted {deleted_count} selected {noun}. Save As still does not embed annotations yet."
+            )
 
     def show_shortcut_guide(self) -> None:
         dialog = ShortcutGuideDialog(self)
@@ -679,6 +935,62 @@ class MainWindow(QMainWindow):
         if self._has_text_input_focus():
             return
         self.adjust_zoom(delta)
+
+    def _activate_annotation_tool_shortcut(self, annotation_type: AnnotationType) -> None:
+        if self.mode != AppMode.VIEWER or self._has_text_input_focus():
+            return
+        self.switch_mode(AppMode.VIEWER)
+        self.set_active_annotation_tool(annotation_type)
+
+    def _clear_annotation_tool_shortcut(self) -> None:
+        if self.mode != AppMode.VIEWER or self._has_text_input_focus():
+            return
+        self.clear_active_annotation_tool()
+
+    def _select_annotation_at(self, page_index: int, document_x: float, document_y: float) -> None:
+        annotation = self._find_selectable_annotation_at(page_index, document_x, document_y)
+        if annotation is None:
+            if self.selected_annotation_ids:
+                self.selected_annotation_ids.clear()
+                self._update_annotation_ui()
+            return
+        modifiers = QApplication.keyboardModifiers()
+        additive = bool(modifiers & Qt.KeyboardModifier.ControlModifier or modifiers & Qt.KeyboardModifier.MetaModifier)
+        if additive:
+            if annotation.id in self.selected_annotation_ids:
+                self.selected_annotation_ids.remove(annotation.id)
+            else:
+                self.selected_annotation_ids.add(annotation.id)
+        else:
+            self.selected_annotation_ids = {annotation.id}
+        self._update_annotation_ui()
+
+    def _find_selectable_annotation_at(self, page_index: int, document_x: float, document_y: float):
+        annotations = [
+            annotation
+            for annotation in self.annotation_service.annotations_for_page(page_index)
+            if annotation.annotation_type in {AnnotationType.HIGHLIGHT, AnnotationType.UNDERLINE}
+        ]
+        for annotation in reversed(annotations):
+            rect = annotation.rect
+            if rect.x <= document_x <= rect.x + rect.width and rect.y <= document_y <= rect.y + rect.height:
+                return annotation
+        return None
+
+    def _deletable_selected_annotation_ids(self) -> list[str]:
+        return [
+            annotation.id
+            for annotation in self.annotation_service.all_annotations()
+            if annotation.id in self.selected_annotation_ids
+            and annotation.annotation_type in {AnnotationType.HIGHLIGHT, AnnotationType.UNDERLINE}
+        ]
+
+    def _visible_launch_annotations(self):
+        return [
+            annotation
+            for annotation in self.annotation_service.all_annotations()
+            if annotation.annotation_type in {AnnotationType.HIGHLIGHT, AnnotationType.UNDERLINE}
+        ]
 
     def _has_text_input_focus(self) -> bool:
         focus_widget = QApplication.focusWidget()
@@ -781,8 +1093,8 @@ class MainWindow(QMainWindow):
         self.redo_action.setEnabled(enabled)
 
     def _update_history_ui(self) -> None:
-        can_undo = self.history_service.can_undo()
-        can_redo = self.history_service.can_redo()
+        can_undo = self.unified_history_service.can_undo()
+        can_redo = self.unified_history_service.can_redo()
         self.toolbar_widget.set_history_enabled(can_undo, can_redo)
         self.editor_workspace.set_history_state(can_undo, can_redo)
         self.undo_action.setEnabled(can_undo)

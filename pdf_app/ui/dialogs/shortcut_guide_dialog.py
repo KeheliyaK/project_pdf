@@ -38,8 +38,8 @@ class ShortcutGuideDialog(QDialog):
                 ("Find next result", self._native_standard(QKeySequence.StandardKey.FindNext)),
                 ("Find previous result", self._native_standard(QKeySequence.StandardKey.FindPrevious)),
                 ("Toggle full screen", "F11"),
-                ("Undo", self._native_standard(QKeySequence.StandardKey.Undo)),
-                ("Redo", self._native_standard(QKeySequence.StandardKey.Redo)),
+                ("Undo last action", self._native_standard(QKeySequence.StandardKey.Undo)),
+                ("Redo last action", self._native_standard(QKeySequence.StandardKey.Redo)),
             ],
         )
         self._add_section(
@@ -51,6 +51,10 @@ class ShortcutGuideDialog(QDialog):
                 ("Zoom in", self._join_shortcuts(self._native_standard(QKeySequence.StandardKey.ZoomIn), "Ctrl+=")),
                 ("Zoom out", self._native_standard(QKeySequence.StandardKey.ZoomOut)),
                 ("Reset zoom", "Ctrl+0"),
+                ("Highlight tool", "H"),
+                ("Underline tool", "U"),
+                ("Delete selected annotation", "Delete"),
+                ("Exit annotation mode", "Esc"),
             ],
         )
         self._add_section(

@@ -74,13 +74,29 @@ class EditorPageItemDelegate(QStyledItemDelegate):
             16,
             16,
         )
-        painter.setPen(QPen(QColor("#475569"), 1))
-        painter.setBrush(QColor("#111827"))
+        is_checked = index.data(Qt.ItemDataRole.CheckStateRole) == Qt.CheckState.Checked
+        checkbox_border = QColor("#64748b")
+        checkbox_fill = QColor("#ffffff")
+        if is_checked:
+            checkbox_border = QColor("#0f766e")
+            checkbox_fill = QColor("#0f766e")
+        painter.setPen(QPen(checkbox_border, 1.2))
+        painter.setBrush(checkbox_fill)
         painter.drawRoundedRect(checkbox_rect, 3, 3)
-        if index.data(Qt.ItemDataRole.CheckStateRole) == Qt.CheckState.Checked:
-            painter.setPen(QPen(QColor("#f8fafc"), 2))
-            painter.drawLine(checkbox_rect.left() + 4, checkbox_rect.center().y(), checkbox_rect.left() + 7, checkbox_rect.bottom() - 4)
-            painter.drawLine(checkbox_rect.left() + 7, checkbox_rect.bottom() - 4, checkbox_rect.right() - 3, checkbox_rect.top() + 4)
+        if is_checked:
+            painter.setPen(QPen(QColor("#ffffff"), 2.4, cap=Qt.PenCapStyle.RoundCap, join=Qt.PenJoinStyle.RoundJoin))
+            painter.drawLine(
+                checkbox_rect.left() + 3,
+                checkbox_rect.center().y(),
+                checkbox_rect.left() + 6,
+                checkbox_rect.bottom() - 4,
+            )
+            painter.drawLine(
+                checkbox_rect.left() + 6,
+                checkbox_rect.bottom() - 4,
+                checkbox_rect.right() - 3,
+                checkbox_rect.top() + 4,
+            )
 
         page_number = str(index.data(Qt.ItemDataRole.DisplayRole) or "")
         number_rect = QRect(
@@ -289,6 +305,10 @@ class EditorWorkspace(QWidget):
         self._selected_pages = {
             item.data(Qt.ItemDataRole.UserRole)
             for item in self.grid.selectedItems()
+        } | {
+            self.grid.item(row).data(Qt.ItemDataRole.UserRole)
+            for row in range(self.grid.count())
+            if self.grid.item(row).checkState() == Qt.CheckState.Checked
         }
         self._apply_shared_selection()
 

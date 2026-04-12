@@ -4,10 +4,10 @@
 PDF App MVP
 
 ## Current phase
-Phase 2 hardening and release preparation - pass 4
+Phase 5 - Mini launch preparation (macOS .app)
 
 ## MVP status
-Frozen baseline with pass 4 hardening applied
+Frozen baseline prepared for a macOS early-preview `.app` mini launch
 
 ## What is working now
 
@@ -21,6 +21,9 @@ Frozen baseline with pass 4 hardening applied
 - Conventional keyboard shortcuts now cover core open/save/find, full screen, page navigation, search navigation, zoom, undo/redo, and stable editor selection/delete actions
 - Help menu now includes a simple in-app keyboard shortcut guide grouped by context
 - A repeatable macOS-first packaging path now exists for local `.app` builds and manual distribution testing
+- Highlight and underline annotations now use drag-based placement in Viewer mode and support selection, delete, top-level undo/redo, and document-level reset
+- Viewer annotation mode now provides clearer active-tool feedback, lightweight annotation shortcuts, and a focused mini-launch-ready visible annotation set
+- A concise mini-launch smoke checklist now exists for preview build verification before sharing a macOS `.app`
 - Save As first export flow with working-copy editing, dirty tracking, unsaved-change prompts, and write-error handling
 - Undo/redo foundation for structural edits: reorder, rotate, and delete
 - Password-protected PDFs can be opened after prompting for a password, and protected PDFs can be imported into merge flow after unlock
@@ -43,18 +46,38 @@ Frozen baseline with pass 4 hardening applied
 - Added essential keyboard shortcuts for core Viewer and Editor workflows without changing the existing document model or password-protected PDF flow
 - Added left/right arrow page-wise navigation in Viewer mode, scoped to the main document view so thumbnails and text inputs keep their existing behavior
 - Added a basic Help-menu shortcut guide and a practical PyInstaller-based macOS packaging path for local build/testing
+- Added an internal annotation foundation covering data models, centralized document-scoped annotation service state, and lightweight Viewer overlay rendering hooks
+- Added click-to-select support for existing highlight and underline annotations in Viewer mode, with visible selection styling in the page overlay
+- Added deletion for selected highlight and underline annotations through the Viewer pane and `Delete` when the Viewer document surface has focus
+- Added document-scoped reset for the visible highlight/underline toolset without changing structural edit undo/redo behavior
+- Kept text box support internal/deprioritized instead of exposing it as part of the current launch-facing annotation subset
+- Removed visible annotation-specific undo/redo buttons from the Viewer pane so the launch-facing annotation UI stays focused on create/select/delete/reset actions
+- Unified top-level Undo/Redo routing so the existing toolbar, Edit menu, and keyboard shortcuts now cover both structural edits and visible highlight/underline annotation actions
+- Tightened launch-facing documentation around the macOS preview target, visible annotation scope, Save As honesty, and early-user limitations
+- Hardened the PyInstaller spec slightly for preview packaging by avoiding optional UPX compression in the macOS `.app` build path
+- Restored Editor checkbox-based multi-selection so checkbox toggles once again feed the same shared selection state as card selection and Cmd-click workflows
+- Improved Editor checkbox checked-state visibility so selected pages are easier to scan quickly during multi-page editing
 
 ## Current non-blocking limitations
 
 - Search panel collapse/expand control could use minor icon refinement in a later UI polish pass
 - Search results do not visually highlight the exact in-page match region
-- Local macOS packaging is for manual testing only and does not yet include codesigning, notarization, or installer polish
+- Annotation tools are still first-pass overall: text box remains deferred from the visible launch set, per-annotation editing is still minimal, and PDF annotation write-back/export is still pending
+- Local macOS packaging is preview-ready for manual distribution/testing only and does not yet include codesigning, notarization, or installer polish
 - Undo/redo is snapshot-based rather than command-granular
+
+## Launch validation note
+
+- Editor checkbox multi-selection regression has been revalidated through automated coverage for checkbox select, deselect, multi-select preservation, mixed selection, and selected-page operation targeting.
+- Editor checkbox checked-state visibility has been polished without changing the compact grid layout or shared selection behavior.
 
 ## Immediate next phase after freeze
 
-Post-MVP polish and hardening:
-- release validation and distribution polish
+Next annotation work:
+- annotation editing polish, better text box handling, and explicit PDF export/write-back integration
+
+Next launch-prep work:
+- packaged-app smoke execution on a built macOS `.app`, followed by codesigning/notarization work when the preview is ready to move beyond early users
 
 ## Maintenance note
 

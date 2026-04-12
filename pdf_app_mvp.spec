@@ -1,11 +1,14 @@
 # -*- mode: python ; coding: utf-8 -*-
-
 from pathlib import Path
-
+import os
 from PyInstaller.utils.hooks import collect_submodules
 
+project_root = Path(os.getcwd()).resolve()
 
-project_root = Path(__file__).resolve().parent
+#from pathlib import Path
+
+#project_root = Path(__file__).resolve().parent
+
 hiddenimports = collect_submodules("fitz") + collect_submodules("pypdf")
 
 
@@ -32,7 +35,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     console=False,
 )
 
@@ -41,7 +44,7 @@ coll = COLLECT(
     a.binaries,
     a.datas,
     strip=False,
-    upx=True,
+    upx=False,
     name="PDF App MVP",
 )
 

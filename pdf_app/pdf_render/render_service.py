@@ -5,8 +5,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import fitz
-from PySide6.QtCore import QSize
-from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtCore import QRectF, QSize, Qt
+from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPen, QPixmap
+
+from pdf_app.annotations.models import Annotation, AnnotationType
 
 
 @dataclass(frozen=True)
@@ -135,6 +137,64 @@ class PdfRenderService:
             (key, value) for key, value in self._viewer_cache.items() if key[0] != resolved
         )
         self._page_metrics_cache.pop(resolved, None)
+
+    def draw_annotation_overlays(
+        self,
+        base_pixmap: QPixmap,
+        page_metrics: PageMetrics,
+        annotations: list[Annotation],
+        selected_annotation_ids: set[str] | None = None,
+    ) -> QPixmap:
+        if not annotations:
+            return base_pixmap
+
+        overlay = QPixmap(base_pixmap)
+        painter = QPainter(overlay)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+
+        display_width = overlay.width() / max(overlay.devicePixelRatio(), 1.0)
+        display_height = overlay.height() / max(overlay.devicePixelRatio(), 1.0)
+        scale_x = display_width / max(page_metrics.width, 1.0)
+        scale_y = display_height / max(page_metrics.height, 1.0)
+
+        for annotation in annotations:
+            color = QColor(annotation.style.color)
+            color.setAlphaF(max(0.0, min(annotation.style.opacity, 1.0)))
+            is_selected = annotation.id in (selected_annotation_ids or set())
+            rect = annotation.rect
+            x = rect.x * scale_x
+            y = rect.y * scale_y
+            width = rect.width * scale_x
+            height = rect.height * scale_y
+            display_rect = QRectF(x, y, width, height)
+
+            if annotation.annotation_type == AnnotationType.HIGHLIGHT:
+                painter.fillRect(display_rect, color)
+            elif annotation.annotation_type == AnnotationType.UNDERLINE:
+                pen = QPen(color)
+                pen.setWidthF(max(1.0, annotation.style.stroke_width))
+                painter.setPen(pen)
+                painter.drawLine(x, y + height, x + width, y + height)
+            elif annotation.annotation_type == AnnotationType.TEXT_BOX:
+                pen = QPen(color)
+                pen.setWidthF(max(1.0, annotation.style.stroke_width))
+                painter.setPen(pen)
+                painter.drawRect(display_rect)
+                if annotation.text_content:
+                    font = QFont()
+                    font.setPointSize(11)
+                    painter.setFont(font)
+                    painter.drawText(display_rect.adjusted(6, 4, -6, -4), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap, annotation.text_content)
+
+            if is_selected:
+                selection_pen = QPen(QColor("#ef4444"))
+                selection_pen.setWidthF(2.0)
+                selection_pen.setStyle(Qt.PenStyle.DashLine)
+                painter.setPen(selection_pen)
+                painter.drawRect(display_rect.adjusted(-2.0, -2.0, 2.0, 2.0))
+
+        painter.end()
+        return overlay
 
     def _remember(self, cache: OrderedDict, key: tuple, pixmap: QPixmap) -> None:
         cache[key] = pixmap

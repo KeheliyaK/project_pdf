@@ -82,6 +82,86 @@
 - Preserved normal PDF open, password-protected PDF flow, Viewer/Editor modes, search, recent-file persistence, keyboard shortcuts, dirty tracking, and Save As behavior while preparing packaging.
 - Confirmed the current verification baseline in the project venv: `./.venv/bin/pytest` passes and `./.venv/bin/python -m compileall pdf_app tests` passes.
 
+## Phase 3 - Annotation foundation
+
+- Added a minimal internal annotation model with stable ids, typed annotation kinds, page association, geometry, style, and optional text content for upcoming highlight, underline, and text box tools.
+- Added `AnnotationService` as the centralized annotation operation layer for add, update, delete, page/document query, and reset-on-document-change behavior.
+- Tied annotation state to the current working-copy document session by opening/resetting the annotation service when a different working document is opened.
+- Kept current behavior honest: annotation state is prepared for future Save As/export integration, but this phase does not write annotations back into PDFs or claim persistence beyond the current document session.
+- Added lightweight Viewer rendering hooks so future annotation overlays can be requested page-by-page and composited without redesigning Viewer mode.
+- Preserved normal PDF open, password-protected PDF flow, Viewer/Editor modes, search, recent files, keyboard shortcuts, Save As behavior, and packaging-safe execution while adding the annotation backbone.
+- Expanded automated coverage for core annotation service operations and reset behavior.
+- Confirmed the current verification baseline in the project venv: `./.venv/bin/pytest` passes and `./.venv/bin/python -m compileall pdf_app tests` passes.
+
+## Phase 4 - First annotation tools
+
+- Added first visible annotation tools for highlight, underline, and text box in Viewer mode through a simple click-to-place workflow.
+- Reused the Phase 3 annotation model/service backbone instead of introducing separate tool-specific storage logic.
+- Extended the Viewer interaction path so page clicks can be translated into document coordinates for annotation placement.
+- Added lightweight Viewer Tool Pane controls for activating highlight, underline, and text box placement without redesigning the Viewer.
+- Kept the first text box workflow intentionally simple by prompting for text content during placement instead of adding advanced inline editing controls.
+- Ensured created annotations stay visible through page navigation, zoom changes, and mode switches by rendering through the shared overlay path.
+- Kept Save As behavior honest: annotations remain session-visible and document-associated for this phase, but are not embedded into output PDFs yet.
+- Preserved normal PDF open, password-protected PDF flow, Viewer/Editor modes, search, recent files, keyboard shortcuts, Save As behavior, and packaging-safe execution while exposing the first annotation tools.
+- Expanded automated coverage for the annotation service lifecycle and reset behavior.
+- Confirmed the current verification baseline in the project venv: `./.venv/bin/pytest` passes and `./.venv/bin/python -m compileall pdf_app tests` passes.
+
+## Phase 4A - Highlight and underline interaction upgrade
+
+- Replaced fixed-size click placement for highlight and underline with drag-based region selection in Viewer mode, while keeping text box on its existing simple click-to-place path.
+- Reused the shared annotation service and Viewer overlay rendering path instead of introducing separate highlight and underline interaction code paths.
+- Added Viewer-side rubber-band selection and document-coordinate conversion so drag gestures map cleanly onto page geometry without changing the underlying annotation model.
+- Added clearer active-tool feedback by switching highlight and underline into a crosshair cursor mode and updating the Viewer tool-pane status text to describe the drag interaction.
+- Added document-scoped annotation undo, redo, and clear controls through the centralized annotation service, intentionally keeping this separate from the existing structural edit history.
+- Added lightweight Viewer annotation shortcuts for highlight (`H`), underline (`U`), and exiting annotation mode (`Esc`) without overloading existing global undo/redo behavior.
+- Preserved normal PDF open, password-protected PDF flow, Viewer/Editor modes, search, recent files, keyboard shortcuts, Save As behavior, and packaging-safe execution while upgrading highlight and underline interactions.
+- Expanded automated coverage for annotation history undo/redo and clear/reset behavior.
+- Confirmed the current verification baseline in the project venv: `./.venv/bin/pytest` passes and `./.venv/bin/python -m compileall pdf_app tests` passes.
+
+## Phase 4B - Annotation management pass 1
+
+- Added document-scoped reset for the visible annotation launch set so highlight and underline annotations can be cleared predictably with explicit confirmation.
+- Added simple Viewer-mode selection for existing highlight and underline annotations by clicking rendered annotations when no creation tool is active.
+- Added visible selected-state rendering in the page overlay path so chosen annotations are clearly distinguishable without introducing resize handles or a larger editing framework.
+- Added deletion for selected highlight and underline annotations through the Viewer pane and `Delete`, keeping the shortcut scoped to the Viewer workspace.
+- Extended the centralized annotation service with grouped deletion and type-filtered reset helpers so annotation management stays in the service layer instead of being scattered across UI code.
+- Kept text box support internal and hidden from the visible mini-launch toolset to keep the launch-facing annotation set focused and coherent.
+- Preserved normal PDF open, password-protected PDF flow, Viewer/Editor modes, search, recent files, keyboard shortcuts, structural edits, Save As behavior, and packaging-safe execution while adding annotation management.
+- Expanded automated coverage for annotation grouped deletion and visible-toolset reset behavior.
+- Confirmed the current verification baseline in the project venv: `./.venv/bin/pytest` passes and `./.venv/bin/python -m compileall pdf_app tests` passes.
+
+## Phase 4C - Mini launch annotation undo/redo unification
+
+- Removed the visible annotation-specific undo/redo buttons from the Viewer annotation pane so the launch-facing toolset stays centered on highlight, underline, delete, reset, and cancel.
+- Added a thin unified history router on top of the existing structural and annotation history systems instead of rewriting them into one engine.
+- Routed the existing top-level Undo/Redo toolbar actions, Edit-menu actions, and standard shortcuts through that unified decision layer so the most recent structural or visible annotation action is undone/redone predictably.
+- Kept structural history and annotation history separate internally for safety, while making the user-facing mini-launch workflow feel like one coherent undo/redo system.
+- Preserved Reset Document Annotations as the explicit annotation-specific bulk action in the Viewer pane.
+- Kept text box support internal/deferred and out of the visible launch-facing undo/redo scope.
+- Expanded automated coverage for the unified history router service.
+- Confirmed the current verification baseline in the project venv: `./.venv/bin/pytest` passes and `./.venv/bin/python -m compileall pdf_app tests` passes.
+
+## Phase 5 - Mini launch preparation (macOS .app)
+
+- Treated the current repository as the launch-preparation baseline for an early macOS `.app` preview instead of expanding the product surface further.
+- Kept the visible annotation scope intentionally limited to highlight and underline, with text box still hidden from the launch-facing UI.
+- Tightened launch-facing documentation so the preview scope, session-only annotation behavior, Save As honesty, and macOS packaging target are explicit and easy for early users to understand.
+- Added a concise `MINI_LAUNCH_SMOKE_CHECKLIST.md` covering launch, normal/protected open, Viewer, Editor, search, highlight, underline, annotation selection/delete/reset, unified undo/redo, and Save As honesty.
+- Slightly hardened the PyInstaller spec for preview packaging by disabling optional UPX compression in the macOS bundle path.
+- Updated the macOS build script output so successful preview builds point directly to the generated `.app` and the smoke checklist to run next.
+- Confirmed shell-script validity with `bash -n scripts/build_macos_app.sh`.
+- Confirmed the current verification baseline in the project venv: `./.venv/bin/pytest` passes and `./.venv/bin/python -m compileall pdf_app tests` passes.
+- Confirmed that PyInstaller is still a separately installed packaging dependency and documented that preview-build requirement honestly.
+
+## Phase 5A - Packaged-app bug fix: Editor checkbox multi-selection
+
+- Fixed a launch-blocking Editor regression where checkbox toggles no longer preserved the shared multi-selection state even though Cmd-click selection still worked.
+- Kept the existing Editor architecture intact and fixed the current selection flow rather than redesigning the card layout or selection model.
+- Updated the Editor highlight-selection path so checkbox-selected pages remain part of the shared selection state instead of being overwritten by a later highlight-selection refresh.
+- Preserved synchronization between checkbox state, card highlight, selected count, and selected-page operation targets.
+- Added regression coverage for checkbox select, checkbox deselect, checkbox multi-select preservation, mixed checkbox plus card selection, and operation targeting via the shared selected-pages state.
+- Polished the custom Editor checkbox rendering so the checked state now uses a clearer accent fill and a thicker high-contrast white checkmark for faster visual scanning in both dev and packaged macOS runs.
+
 ## Phase and requirement coverage
 
 - Covered the MVP boundary through Phase 5 only
@@ -94,6 +174,7 @@
 
 ## Deferred items
 
-- Annotation tools and annotation UI
+- PDF annotation write-back/export integration
+- Annotation editing, deletion UI, resizing, and richer formatting controls
 - Packaging polish, codesigning, notarization, and installer work
 - Advanced in-page search highlighting

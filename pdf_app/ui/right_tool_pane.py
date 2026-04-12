@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pdf_app.annotations.models import AnnotationType
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QFrame,
@@ -21,6 +22,10 @@ class ViewerToolPane(QWidget):
     previous_requested = Signal()
     next_requested = Signal()
     result_activated = Signal(int)
+    annotation_tool_selected = Signal(object)
+    annotation_tool_cleared = Signal()
+    annotation_reset_requested = Signal()
+    annotation_delete_requested = Signal()
     rotate_selected_requested = Signal(int)
     rotate_all_requested = Signal(int)
 
@@ -63,6 +68,28 @@ class ViewerToolPane(QWidget):
         search_layout.addWidget(self.results_list, 1)
         layout.addWidget(self.search_panel, 1)
 
+        annotation_box = QFrame()
+        annotation_layout = QVBoxLayout(annotation_box)
+        annotation_layout.addWidget(QLabel("Annotations"))
+        self.annotation_status_label = QLabel("No annotation tool active")
+        self.annotation_status_label.setStyleSheet("color: #475569;")
+        self.highlight_button = QPushButton("Highlight")
+        self.underline_button = QPushButton("Underline")
+        self.text_box_button = QPushButton("Text Box")
+        self.clear_tool_button = QPushButton("Cancel Tool")
+        self.delete_annotation_button = QPushButton("Delete Selected")
+        self.reset_annotations_button = QPushButton("Reset Document Annotations")
+        for button in (self.highlight_button, self.underline_button, self.text_box_button):
+            button.setCheckable(True)
+            button.setAutoExclusive(True)
+            annotation_layout.addWidget(button)
+        self.text_box_button.setVisible(False)
+        annotation_layout.addWidget(self.delete_annotation_button)
+        annotation_layout.addWidget(self.reset_annotations_button)
+        annotation_layout.addWidget(self.clear_tool_button)
+        annotation_layout.addWidget(self.annotation_status_label)
+        layout.addWidget(annotation_box)
+
         selected_box = QFrame()
         selected_layout = QVBoxLayout(selected_box)
         selected_layout.addWidget(QLabel("Current / Selected Pages"))
@@ -95,10 +122,18 @@ class ViewerToolPane(QWidget):
         self.rotate_all_cw.clicked.connect(lambda: self.rotate_all_requested.emit(90))
         self.rotate_all_ccw.clicked.connect(lambda: self.rotate_all_requested.emit(-90))
         self.rotate_all_180.clicked.connect(lambda: self.rotate_all_requested.emit(180))
+        self.highlight_button.clicked.connect(lambda checked: self._emit_annotation_tool(AnnotationType.HIGHLIGHT, checked))
+        self.underline_button.clicked.connect(lambda checked: self._emit_annotation_tool(AnnotationType.UNDERLINE, checked))
+        self.text_box_button.clicked.connect(lambda checked: self._emit_annotation_tool(AnnotationType.TEXT_BOX, checked))
+        self.delete_annotation_button.clicked.connect(self.annotation_delete_requested.emit)
+        self.reset_annotations_button.clicked.connect(self.annotation_reset_requested.emit)
+        self.clear_tool_button.clicked.connect(self._clear_annotation_tool)
         self.search_toggle.toggled.connect(self._set_search_panel_visible)
         self._set_search_panel_visible(True)
         self.prev_button.setEnabled(False)
         self.next_button.setEnabled(False)
+        self.delete_annotation_button.setEnabled(False)
+        self.reset_annotations_button.setEnabled(False)
 
     def set_results(self, results: list) -> None:
         self.results_list.clear()
@@ -131,12 +166,57 @@ class ViewerToolPane(QWidget):
         self.prev_button.setEnabled(False)
         self.next_button.setEnabled(False)
 
+    def set_annotation_tool(self, annotation_type: AnnotationType | None) -> None:
+        self.highlight_button.setChecked(annotation_type == AnnotationType.HIGHLIGHT)
+        self.underline_button.setChecked(annotation_type == AnnotationType.UNDERLINE)
+        self.text_box_button.setChecked(annotation_type == AnnotationType.TEXT_BOX)
+        if annotation_type is None:
+            self.annotation_status_label.setText("No annotation tool active")
+        elif annotation_type == AnnotationType.HIGHLIGHT:
+            self.annotation_status_label.setText("Highlight active: drag across the page to place it.")
+        elif annotation_type == AnnotationType.UNDERLINE:
+            self.annotation_status_label.setText("Underline active: drag across the page to place it.")
+        elif annotation_type == AnnotationType.TEXT_BOX:
+            self.annotation_status_label.setText("Text Box active: click a page to place it.")
+
+    def set_annotation_management_state(
+        self,
+        has_annotations: bool,
+        selected_count: int,
+    ) -> None:
+        self.delete_annotation_button.setEnabled(selected_count > 0)
+        self.reset_annotations_button.setEnabled(has_annotations)
+        if self.highlight_button.isChecked():
+            self.annotation_status_label.setText("Highlight active: drag across the page to place it.")
+            return
+        if self.underline_button.isChecked():
+            self.annotation_status_label.setText("Underline active: drag across the page to place it.")
+            return
+        if selected_count == 1:
+            self.annotation_status_label.setText("1 annotation selected. Delete removes the selected mark.")
+        elif selected_count > 1:
+            self.annotation_status_label.setText(f"{selected_count} annotations selected. Delete removes the selected marks.")
+        elif has_annotations:
+            self.annotation_status_label.setText("Click a highlight or underline to select it, or reset all document annotations.")
+        else:
+            self.annotation_status_label.setText("No annotation tool active")
+
     def _set_search_panel_visible(self, visible: bool) -> None:
         self.search_panel.setVisible(visible)
         self.search_toggle.setArrowType(Qt.ArrowType.DownArrow if visible else Qt.ArrowType.RightArrow)
 
     def _emit_search(self) -> None:
         self.search_requested.emit(self.search_input.text())
+
+    def _emit_annotation_tool(self, annotation_type: AnnotationType, checked: bool) -> None:
+        if checked:
+            self.annotation_tool_selected.emit(annotation_type)
+        else:
+            self.annotation_tool_cleared.emit()
+
+    def _clear_annotation_tool(self) -> None:
+        self.set_annotation_tool(None)
+        self.annotation_tool_cleared.emit()
 
 
 class EditorToolPane(QWidget):
