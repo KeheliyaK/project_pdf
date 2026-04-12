@@ -1,13 +1,11 @@
 # -*- mode: python ; coding: utf-8 -*-
 from pathlib import Path
-import os
+
+from PyInstaller.config import CONF
 from PyInstaller.utils.hooks import collect_submodules
 
-project_root = Path(os.getcwd()).resolve()
-
-#from pathlib import Path
-
-#project_root = Path(__file__).resolve().parent
+project_root = Path(CONF["specpath"]).resolve()
+icon_path = project_root / "assets" / "pdf_app_mvp.icns"
 
 hiddenimports = collect_submodules("fitz") + collect_submodules("pypdf")
 
@@ -51,6 +49,6 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name="PDF App MVP.app",
-    icon=None,
+    icon=str(project_root / "assets" / "icon-windowed.icns"),
     bundle_identifier="local.pdf-app-mvp",
 )

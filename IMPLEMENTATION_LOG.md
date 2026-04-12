@@ -162,6 +162,15 @@
 - Added regression coverage for checkbox select, checkbox deselect, checkbox multi-select preservation, mixed checkbox plus card selection, and operation targeting via the shared selected-pages state.
 - Polished the custom Editor checkbox rendering so the checked state now uses a clearer accent fill and a thicker high-contrast white checkmark for faster visual scanning in both dev and packaged macOS runs.
 
+## Phase 5A - Final release-artifact fix: macOS tester-ready bundle output
+
+- Fixed the macOS packaging regression so the build now produces the intended `dist/PDF App MVP.app` bundle again instead of leaving only the folder-style onedir artifact as the usable output.
+- Restored the spec to use a stable repo-relative root through PyInstaller's spec configuration instead of a brittle runtime path assumption.
+- Added a packaged `.icns` app icon asset and wired the bundle to that icon so the macOS app metadata again points to a real icon resource.
+- Updated the build script to use workspace-local PyInstaller config and work directories, avoiding cache-cleanup permission failures during preview builds.
+- Rebuilt the macOS preview artifact successfully and verified the `.app` bundle metadata reports `CFBundlePackageType=APPL`, the expected executable name, and the packaged icon file.
+- Confirmed the launched process is the app bundle executable, preserving direct GUI launch behavior for early tester sharing.
+
 ## Phase and requirement coverage
 
 - Covered the MVP boundary through Phase 5 only

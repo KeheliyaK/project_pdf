@@ -4,7 +4,7 @@ Early preview for a macOS mini launch.
 
 A desktop PDF viewer and structural editor MVP built with Python, PySide6, PyMuPDF, and pypdf.
 
-This repository is the current frozen MVP baseline and the source for the current macOS `.app` preview target.
+This repository is the current frozen MVP baseline and the source for the current macOS `PDF App MVP.app` preview target.
 
 ## MVP scope
 
@@ -96,6 +96,7 @@ cat MINI_LAUNCH_SMOKE_CHECKLIST.md
 ```
 
 The generated bundle is intended for early-user preview and local distribution testing. It is not yet codesigned, notarized, or wrapped in an installer.
+On first launch, macOS may warn that the app is from an unidentified developer. For preview testing, use Finder to right-click `PDF App MVP.app` and choose `Open` once, then confirm the prompt.
 
 ## Test
 

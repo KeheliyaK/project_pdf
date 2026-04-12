@@ -54,6 +54,7 @@
 - Highlight and underline annotations now use drag-based placement, and reset/delete stay in the Viewer pane while top-level Undo/Redo handles both structural and visible annotation actions.
 - A concise mini-launch smoke checklist now exists for preview `.app` verification before sharing builds.
 - Editor checkbox-based multi-selection is working again and stays synchronized with card highlight, selected count, and selected-page operation targets.
+- The macOS preview packaging path is back to producing the intended `dist/PDF App MVP.app` bundle with a packaged icon resource and direct GUI launch behavior.
 
 ## Maintenance note
 

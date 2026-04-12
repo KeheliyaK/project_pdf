@@ -4,6 +4,9 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-$ROOT_DIR/.venv/bin/python}"
 SPEC_PATH="$ROOT_DIR/pdf_app_mvp.spec"
+PYI_CONFIG_DIR="${PYI_CONFIG_DIR:-$ROOT_DIR/.pyinstaller}"
+PYI_WORK_DIR="${PYI_WORK_DIR:-$ROOT_DIR/build/pyinstaller}"
+PYI_DIST_DIR="${PYI_DIST_DIR:-$ROOT_DIR/dist}"
 
 if [[ ! -x "$PYTHON_BIN" ]]; then
   echo "Python interpreter not found at: $PYTHON_BIN" >&2
@@ -19,7 +22,12 @@ if ! "$PYTHON_BIN" -c "import PyInstaller" >/dev/null 2>&1; then
 fi
 
 cd "$ROOT_DIR"
-"$PYTHON_BIN" -m PyInstaller --noconfirm --clean "$SPEC_PATH"
+mkdir -p "$PYI_CONFIG_DIR" "$PYI_WORK_DIR" "$PYI_DIST_DIR"
+PYINSTALLER_CONFIG_DIR="$PYI_CONFIG_DIR" \
+    "$PYTHON_BIN" -m PyInstaller --noconfirm --clean \
+    --workpath "$PYI_WORK_DIR" \
+    --distpath "$PYI_DIST_DIR" \
+    "$SPEC_PATH"
 
 echo
 echo "Build complete."

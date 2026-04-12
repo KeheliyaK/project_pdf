@@ -7,7 +7,7 @@ PDF App MVP
 Phase 5 - Mini launch preparation (macOS .app)
 
 ## MVP status
-Frozen baseline prepared for a macOS early-preview `.app` mini launch
+Frozen baseline prepared for a finalized macOS early-preview `.app` mini launch build
 
 ## What is working now
 
@@ -21,6 +21,7 @@ Frozen baseline prepared for a macOS early-preview `.app` mini launch
 - Conventional keyboard shortcuts now cover core open/save/find, full screen, page navigation, search navigation, zoom, undo/redo, and stable editor selection/delete actions
 - Help menu now includes a simple in-app keyboard shortcut guide grouped by context
 - A repeatable macOS-first packaging path now exists for local `.app` builds and manual distribution testing
+- The current packaging path now restores the intended `dist/PDF App MVP.app` bundle with a packaged app icon and direct GUI launch behavior for external preview testing
 - Highlight and underline annotations now use drag-based placement in Viewer mode and support selection, delete, top-level undo/redo, and document-level reset
 - Viewer annotation mode now provides clearer active-tool feedback, lightweight annotation shortcuts, and a focused mini-launch-ready visible annotation set
 - A concise mini-launch smoke checklist now exists for preview build verification before sharing a macOS `.app`
@@ -56,6 +57,8 @@ Frozen baseline prepared for a macOS early-preview `.app` mini launch
 - Tightened launch-facing documentation around the macOS preview target, visible annotation scope, Save As honesty, and early-user limitations
 - Hardened the PyInstaller spec slightly for preview packaging by avoiding optional UPX compression in the macOS `.app` build path
 - Restored Editor checkbox-based multi-selection so checkbox toggles once again feed the same shared selection state as card selection and Cmd-click workflows
+- Restored the intended macOS preview artifact so builds once again produce `dist/PDF App MVP.app` instead of only the folder-style onedir output
+- Restored the packaged app icon path and verified the bundle metadata points to the shipped `.icns` resource
 - Improved Editor checkbox checked-state visibility so selected pages are easier to scan quickly during multi-page editing
 
 ## Current non-blocking limitations
@@ -69,6 +72,7 @@ Frozen baseline prepared for a macOS early-preview `.app` mini launch
 ## Launch validation note
 
 - Editor checkbox multi-selection regression has been revalidated through automated coverage for checkbox select, deselect, multi-select preservation, mixed selection, and selected-page operation targeting.
+- The macOS preview build now completes to `dist/PDF App MVP.app`, and the launched process is the app bundle executable rather than a terminal-style CLI entry path.
 - Editor checkbox checked-state visibility has been polished without changing the compact grid layout or shared selection behavior.
 
 ## Immediate next phase after freeze
