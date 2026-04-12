@@ -5,8 +5,9 @@ import tempfile
 from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt, QTimer
-from PySide6.QtGui import QAction, QDragEnterEvent, QDropEvent, QIcon
+from PySide6.QtGui import QAction, QDragEnterEvent, QDropEvent, QIcon, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
+    QApplication,
     QFileDialog,
     QInputDialog,
     QLabel,
@@ -76,6 +77,7 @@ class MainWindow(QMainWindow):
 
         self._build_ui()
         self._build_menus()
+        self._build_shortcuts()
         self._connect_signals()
         self._set_document_controls_enabled(False)
         self._update_history_ui()
@@ -140,6 +142,63 @@ class MainWindow(QMainWindow):
 
         edit_menu.addAction(self.undo_action)
         edit_menu.addAction(self.redo_action)
+
+    def _build_shortcuts(self) -> None:
+        self.open_action.setShortcuts(QKeySequence.StandardKey.Open)
+        self.save_as_action.setShortcuts(QKeySequence.StandardKey.SaveAs)
+        self.undo_action.setShortcuts(QKeySequence.StandardKey.Undo)
+        self.redo_action.setShortcuts(QKeySequence.StandardKey.Redo)
+        self.exit_action.setShortcuts(QKeySequence.StandardKey.Quit)
+
+        self.find_action = QAction("Find", self)
+        self.find_action.setShortcuts(QKeySequence.StandardKey.Find)
+        self.find_action.triggered.connect(self.focus_search)
+        self.addAction(self.find_action)
+
+        self.find_next_action = QAction("Find Next", self)
+        self.find_next_action.setShortcuts(QKeySequence.StandardKey.FindNext)
+        self.find_next_action.triggered.connect(self.search_next_result)
+        self.addAction(self.find_next_action)
+
+        self.find_previous_action = QAction("Find Previous", self)
+        self.find_previous_action.setShortcuts(QKeySequence.StandardKey.FindPrevious)
+        self.find_previous_action.triggered.connect(self.search_previous_result)
+        self.addAction(self.find_previous_action)
+
+        self.fullscreen_action = QAction("Toggle Full Screen", self)
+        self.fullscreen_action.setShortcut(QKeySequence("F11"))
+        self.fullscreen_action.triggered.connect(self._toggle_fullscreen)
+        self.addAction(self.fullscreen_action)
+
+        self.zoom_in_shortcut = QShortcut(QKeySequence(QKeySequence.StandardKey.ZoomIn), self)
+        self.zoom_in_shortcut.activated.connect(lambda: self._adjust_zoom_shortcut(10))
+        self.zoom_in_alternate_shortcut = QShortcut(QKeySequence("Ctrl+="), self)
+        self.zoom_in_alternate_shortcut.activated.connect(lambda: self._adjust_zoom_shortcut(10))
+        self.zoom_out_shortcut = QShortcut(QKeySequence(QKeySequence.StandardKey.ZoomOut), self)
+        self.zoom_out_shortcut.activated.connect(lambda: self._adjust_zoom_shortcut(-10))
+        self.zoom_reset_shortcut = QShortcut(QKeySequence("Ctrl+0"), self)
+        self.zoom_reset_shortcut.activated.connect(self.reset_zoom)
+
+        self.next_page_shortcut = QShortcut(QKeySequence("PgDown"), self)
+        self.next_page_shortcut.activated.connect(self.next_page)
+        self.previous_page_shortcut = QShortcut(QKeySequence("PgUp"), self)
+        self.previous_page_shortcut.activated.connect(self.previous_page)
+        self.previous_page_arrow_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Left), self.viewer_workspace)
+        self.previous_page_arrow_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.previous_page_arrow_shortcut.activated.connect(self.previous_page_arrow)
+        self.next_page_arrow_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Right), self.viewer_workspace)
+        self.next_page_arrow_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.next_page_arrow_shortcut.activated.connect(self.next_page_arrow)
+
+        self.delete_pages_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Delete), self.editor_workspace)
+        self.delete_pages_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.delete_pages_shortcut.activated.connect(self.delete_selected_pages_shortcut)
+        self.select_all_pages_shortcut = QShortcut(
+            QKeySequence(QKeySequence.StandardKey.SelectAll),
+            self.editor_workspace,
+        )
+        self.select_all_pages_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.select_all_pages_shortcut.activated.connect(self.select_all_editor_pages)
 
     def _connect_signals(self) -> None:
         self.toolbar_widget.open_requested.connect(self.open_pdf_dialog)
@@ -542,8 +601,97 @@ class MainWindow(QMainWindow):
         self.status_widget.update_state(message)
         self._banner_timer.start(5000)
 
+    def focus_search(self) -> None:
+        if not self.document_manager.state.has_document:
+            return
+        self.switch_mode(AppMode.VIEWER)
+        self.right_pane.viewer_pane.set_search_collapsed(False)
+        self.toolbar_widget.search_input.setFocus()
+        self.toolbar_widget.search_input.selectAll()
+
     def _refresh_home_recents(self) -> None:
         self.home_screen.set_recent_files(self.document_manager.state.recent_files)
+
+    def search_next_result(self) -> None:
+        if not self.document_manager.state.has_document or not self.search_service.results:
+            return
+        self.switch_mode(AppMode.VIEWER)
+        self.right_pane.viewer_pane.set_search_collapsed(False)
+        self.search_service.next_result()
+
+    def search_previous_result(self) -> None:
+        if not self.document_manager.state.has_document or not self.search_service.results:
+            return
+        self.switch_mode(AppMode.VIEWER)
+        self.right_pane.viewer_pane.set_search_collapsed(False)
+        self.search_service.previous_result()
+
+    def next_page(self) -> None:
+        if self.mode != AppMode.VIEWER or self._has_text_input_focus():
+            return
+        self.jump_to_page(self.document_manager.state.current_page + 1)
+
+    def previous_page(self) -> None:
+        if self.mode != AppMode.VIEWER or self._has_text_input_focus():
+            return
+        self.jump_to_page(self.document_manager.state.current_page - 1)
+
+    def next_page_arrow(self) -> None:
+        if not self._viewer_document_view_has_focus():
+            return
+        self.jump_to_page(self.document_manager.state.current_page + 1)
+
+    def previous_page_arrow(self) -> None:
+        if not self._viewer_document_view_has_focus():
+            return
+        self.jump_to_page(self.document_manager.state.current_page - 1)
+
+    def reset_zoom(self) -> None:
+        state = self.document_manager.state
+        if not state.has_document or self.mode == AppMode.HOME or self._has_text_input_focus():
+            return
+        if state.zoom_percent == 100:
+            return
+        self.document_manager.set_zoom_percent(100)
+        self._reload_document_views()
+        self.jump_to_page(state.current_page)
+
+    def delete_selected_pages_shortcut(self) -> None:
+        if self.mode != AppMode.EDITOR or self._has_text_input_focus():
+            return
+        self.delete_selected_pages()
+
+    def select_all_editor_pages(self) -> None:
+        if self.mode != AppMode.EDITOR or self._has_text_input_focus():
+            return
+        self.editor_workspace.select_all_pages()
+
+    def _adjust_zoom_shortcut(self, delta: int) -> None:
+        if self._has_text_input_focus():
+            return
+        self.adjust_zoom(delta)
+
+    def _has_text_input_focus(self) -> bool:
+        focus_widget = QApplication.focusWidget()
+        return isinstance(focus_widget, QLineEdit)
+
+    def _viewer_document_view_has_focus(self) -> bool:
+        if self.mode != AppMode.VIEWER or self._has_text_input_focus():
+            return False
+        focus_widget = QApplication.focusWidget()
+        if focus_widget is None:
+            return False
+        return self._is_descendant_of(focus_widget, self.viewer_workspace)
+
+    @staticmethod
+    def _is_descendant_of(widget: QWidget, ancestor: QWidget) -> bool:
+        current: QWidget | None = widget
+        while current is not None:
+            if current is ancestor:
+                return True
+            parent = current.parentWidget()
+            current = parent
+        return False
 
     def _open_document_with_password_prompt(self, path: Path) -> bool:
         password: str | None = None

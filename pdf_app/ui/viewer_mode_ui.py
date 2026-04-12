@@ -14,6 +14,7 @@ class ClickablePageLabel(QLabel):
     def __init__(self, page_index: int) -> None:
         super().__init__()
         self.page_index = page_index
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setScaledContents(False)
         self.setStyleSheet(
@@ -21,6 +22,7 @@ class ClickablePageLabel(QLabel):
         )
 
     def mousePressEvent(self, event) -> None:  # type: ignore[override]
+        self.setFocus(Qt.FocusReason.MouseFocusReason)
         self.clicked.emit(self.page_index)
         super().mousePressEvent(event)
 
@@ -33,13 +35,17 @@ class ViewerWorkspace(QWidget):
         super().__init__()
         self.render_service = render_service
         self.scroll_area = QScrollArea()
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.scroll_area.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
         self.container = QWidget()
+        self.container.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.pages_layout = QVBoxLayout(self.container)
         self.pages_layout.setContentsMargins(24, 24, 24, 24)
         self.pages_layout.setSpacing(24)
         self.scroll_area.setWidget(self.container)
+        self.scroll_area.viewport().setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -89,6 +95,9 @@ class ViewerWorkspace(QWidget):
             self.scroll_area.ensureWidgetVisible(self.page_widgets[page_index], 0, 24)
             self._active_page = page_index
             self._schedule_refresh()
+
+    def focus_document_view(self) -> None:
+        self.scroll_area.viewport().setFocus(Qt.FocusReason.ShortcutFocusReason)
 
     def refresh_visible_pages(self) -> None:
         if not self.pdf_path or not self.page_widgets:

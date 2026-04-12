@@ -55,6 +55,23 @@
 - Expanded automated coverage for persisted recent-files behavior and blank-query search handling.
 - Confirmed the current verification baseline in the project venv: `./.venv/bin/pytest` passes and `./.venv/bin/python -m compileall pdf_app tests` passes.
 
+## Phase 2 - Post-MVP hardening and release preparation (pass 3)
+
+- Added a focused keyboard shortcut layer on top of the existing `MainWindow` actions instead of introducing a larger shortcut framework.
+- Bound conventional global shortcuts for open, save as, find, full screen, undo, and redo.
+- Added practical Viewer shortcuts for next/previous page, next/previous search result, zoom in, zoom out, and zoom reset.
+- Added practical Editor shortcuts for deleting selected pages and selecting all pages in the editor workspace.
+- Kept shortcut behavior context-sensitive so Viewer navigation only runs in Viewer mode, Editor selection/edit shortcuts stay in the editor workspace, and text inputs keep normal typing/editing behavior.
+- Preserved password-protected PDF open/import handling, recent-files persistence, shared search behavior, dirty tracking, working-copy edits, and Save As flow while adding shortcuts.
+- Confirmed the current verification baseline in the project venv: `./.venv/bin/pytest` passes and `./.venv/bin/python -m compileall pdf_app tests` passes.
+
+## Phase 2 - Post-MVP hardening and release preparation (focused Viewer navigation update)
+
+- Added left/right arrow page-wise navigation for Viewer mode using the existing `jump_to_page()` path so current page state, thumbnail selection, status updates, and page tracking stay synchronized.
+- Scoped the new arrow shortcuts to the Viewer workspace subtree only, so they do not trigger while typing in search inputs or while using the thumbnail list.
+- Added focus handling for the Viewer document surface so page widgets and the scroll viewport can own focus cleanly when the user interacts with the main document view.
+- Preserved the existing soft-scroll behavior, search navigation, password-protected PDF flow, undo/redo, and Save As behavior while adding page-wise arrow navigation.
+
 ## Phase and requirement coverage
 
 - Covered the MVP boundary through Phase 5 only
@@ -68,5 +85,5 @@
 ## Deferred items
 
 - Annotation tools and annotation UI
-- Keyboard shortcuts and packaging polish
+- Packaging polish
 - Advanced in-page search highlighting

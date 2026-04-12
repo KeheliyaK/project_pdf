@@ -24,6 +24,7 @@ The MVP intentionally stops before annotation tools.
 - Editor page-organization grid with multi-selection and drag-and-drop reorder
 - Structural operations: reorder, delete, rotate selected, rotate all, extract selected pages, split by range, and merge PDFs
 - Password-protected PDF open support with password prompt, plus protected-PDF import support for merge workflow
+- Keyboard shortcuts for common workflows such as open, save as, find, search next/previous, page navigation, zoom, full screen, undo/redo, and core editor selection/delete actions
 - Save As first export flow with working-copy editing, dirty tracking, unsaved-changes prompts, and write-error handling
 - Undo/redo foundation for structural edits: reorder, rotate, and delete
 
@@ -59,6 +60,7 @@ python3 -m compileall pdf_app tests
 ## Current known limitations
 
 - Search navigation jumps to the correct page/result, but does not visually mark the exact in-page match
+- Search panel collapse/expand control icon polish is intentionally deferred
 - Undo/redo is snapshot-based for the current structural edit set and is not command-granular
 
 ## Project structure overview

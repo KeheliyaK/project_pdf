@@ -263,6 +263,13 @@ class EditorWorkspace(QWidget):
     def selected_pages(self) -> list[int]:
         return sorted(self._selected_pages)
 
+    def select_all_pages(self) -> None:
+        self._selected_pages = {
+            self.grid.item(row).data(Qt.ItemDataRole.UserRole)
+            for row in range(self.grid.count())
+        }
+        self._apply_shared_selection()
+
     def set_history_state(self, can_undo: bool, can_redo: bool) -> None:
         self.mini_toolbar.update_history_state(can_undo, can_redo)
 

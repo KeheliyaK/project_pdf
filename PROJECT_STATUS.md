@@ -4,19 +4,21 @@
 PDF App MVP
 
 ## Current phase
-Phase 2 hardening and release preparation - pass 2
+Phase 2 hardening and release preparation - pass 3
 
 ## MVP status
-Frozen baseline with pass 2 hardening applied
+Frozen baseline with pass 3 hardening applied plus focused Viewer navigation update
 
 ## What is working now
 
 - Shared main window with Home, Viewer, and Editor workflows
 - Open PDF, drag-and-drop open, and a persisted recent-files list across app restarts
 - Viewer mode with continuous scroll, zoom, full screen, thumbnails, page jump, and current-page tracking
+- Viewer mode supports page-wise left/right arrow navigation when the document view itself has focus
 - Shared PDF text search wired to both the toolbar search field and the Viewer Tool Pane, with collapsible search controls and clearer result-position feedback
 - Editor page-organization workspace with multi-selection and drag-and-drop reorder
 - Structural operations: reorder, delete, rotate selected, rotate all, extract, split, and dedicated merge workflow
+- Conventional keyboard shortcuts now cover core open/save/find, full screen, page navigation, search navigation, zoom, undo/redo, and stable editor selection/delete actions
 - Save As first export flow with working-copy editing, dirty tracking, unsaved-change prompts, and write-error handling
 - Undo/redo foundation for structural edits: reorder, rotate, and delete
 - Password-protected PDFs can be opened after prompting for a password, and protected PDFs can be imported into merge flow after unlock
@@ -36,16 +38,18 @@ Frozen baseline with pass 2 hardening applied
 - Added validation guards for reorder, delete, rotate, extract, split, and locked merge inputs
 - Replaced in-memory recent files with persisted recent-file storage and graceful cleanup of missing or inaccessible entries
 - Made the Viewer search pane collapsible and improved active-result feedback in the Tool Pane and status bar
+- Added essential keyboard shortcuts for core Viewer and Editor workflows without changing the existing document model or password-protected PDF flow
+- Added left/right arrow page-wise navigation in Viewer mode, scoped to the main document view so thumbnails and text inputs keep their existing behavior
 
 ## Current non-blocking limitations
 
+- Search panel collapse/expand control could use minor icon refinement in a later UI polish pass
 - Search results do not visually highlight the exact in-page match region
 - Undo/redo is snapshot-based rather than command-granular
 
 ## Immediate next phase after freeze
 
 Post-MVP polish and hardening:
-- keyboard shortcuts
 - packaging/release preparation for desktop distribution
 
 ## Maintenance note

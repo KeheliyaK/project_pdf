@@ -2,6 +2,11 @@
 
 ## Non-blocking limitations
 
+- Search panel collapse/expand control icon polish is deferred
+  - Description: The current collapse/expand control is functionally acceptable, but minor icon refinement is intentionally deferred to a later UI polish pass.
+  - Affected area/module: `pdf_app/ui/right_tool_pane.py`
+  - Suggested next action: Revisit only during a dedicated visual polish pass.
+
 - Search navigation does not highlight the exact in-page match
   - Description: Search jumps to the correct page and keeps result state in sync, but does not visually mark the exact match area on the page.
   - Affected area/module: `pdf_app/services/search_service.py`, `pdf_app/ui/viewer_mode_ui.py`
@@ -31,6 +36,7 @@
 - Page-count-changing edits now clamp the current page correctly so delete/undo/redo reloads stay in range.
 - Viewer search controls are now collapsible and show clearer result-position guidance during navigation.
 - Recent files are now stored persistently across restarts and missing/unavailable entries are handled without crashing the Home screen flow.
+- Essential keyboard shortcuts now cover core open/save/find/full-screen actions plus practical Viewer and Editor navigation/edit workflows.
 
 ## Maintenance note
 
