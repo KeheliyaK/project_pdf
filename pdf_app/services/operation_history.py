@@ -34,6 +34,12 @@ class OperationHistoryService:
         self._undo_stack.append(HistoryEntry(snapshot_path=snapshot_path, description=description))
         self._redo_stack.clear()
 
+    def discard_last_undo_snapshot(self) -> None:
+        if not self._undo_stack:
+            return
+        entry = self._undo_stack.pop()
+        entry.snapshot_path.unlink(missing_ok=True)
+
     def undo(self, working_path: Path) -> str | None:
         if not self._undo_stack:
             return None

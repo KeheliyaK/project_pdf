@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QInputDialog,
     QLabel,
+    QLineEdit,
     QListView,
     QListWidget,
     QListWidgetItem,
@@ -23,6 +24,11 @@ from PySide6.QtWidgets import (
 
 from pdf_app.pdf_ops.pdf_operation_service import PdfOperationService
 from pdf_app.pdf_render.render_service import PdfRenderService
+from pdf_app.services.pdf_access_service import (
+    PdfAccessService,
+    PdfInvalidPasswordError,
+    PdfPasswordRequiredError,
+)
 from pdf_app.services.document_manager import DocumentManager
 from pdf_app.services.export_service import ExportService
 from pdf_app.services.operation_history import OperationHistoryService
@@ -50,6 +56,7 @@ class MainWindow(QMainWindow):
         self.export_service = ExportService()
         self.search_service = SearchService()
         self.history_service = OperationHistoryService()
+        self.pdf_access_service = PdfAccessService()
 
         self.mode = AppMode.HOME
         self._banner_timer = QTimer(self)
@@ -73,6 +80,7 @@ class MainWindow(QMainWindow):
         self._set_document_controls_enabled(False)
         self._update_history_ui()
         self.right_pane.show_placeholder()
+        self._refresh_home_recents()
 
     def _build_ui(self) -> None:
         shell = QWidget()
@@ -192,15 +200,26 @@ class MainWindow(QMainWindow):
             self.open_pdf(path)
 
     def open_pdf(self, path: str) -> None:
+        source_path = Path(path)
         if self.document_manager.state.has_document and not self._confirm_discard_changes():
             return
+        recent_status = self.document_manager.recent_file_status(source_path)
+        if recent_status != "available":
+            self.document_manager.remove_recent(source_path)
+            self._refresh_home_recents()
+            if recent_status == "missing":
+                QMessageBox.warning(self, "Recent file missing", f"{source_path.name} could not be found.")
+            else:
+                QMessageBox.warning(self, "Recent file unavailable", f"{source_path.name} is no longer accessible.")
+            return
         try:
-            self.document_manager.open_document(path)
+            if not self._open_document_with_password_prompt(source_path):
+                return
             self.history_service.clear()
             self.render_service.clear_document_cache(self.document_manager.state.working_path)
             self._reload_document_views()
             self.switch_mode(AppMode.VIEWER)
-            self.home_screen.set_recent_files(self.document_manager.state.recent_files)
+            self._refresh_home_recents()
             self.status_widget.update_state("Document opened")
             self._update_history_ui()
         except Exception as exc:
@@ -235,10 +254,19 @@ class MainWindow(QMainWindow):
             self.left_pane.addItem(item)
 
     def perform_search(self, query: str) -> None:
-        self.search_service.search(self.document_manager.state.working_path, query)
+        results = self.search_service.search(self.document_manager.state.working_path, query)
+        normalized_query = query.strip()
         self.right_pane.viewer_pane.search_input.setText(query)
         self.toolbar_widget.search_input.setText(query)
-        self.status_widget.update_state(f"Search results for '{query}'")
+        self.right_pane.viewer_pane.set_search_collapsed(False)
+        if not normalized_query:
+            self.status_widget.update_state("Search cleared")
+            return
+        if results:
+            self.status_widget.update_state(f"{len(results)} result(s) for '{normalized_query}'")
+        else:
+            self.right_pane.viewer_pane.show_no_results(normalized_query)
+            self.status_widget.update_state(f"No results for '{normalized_query}'")
 
     def _activate_search_result(self, result, index: int, total: int) -> None:
         self.right_pane.viewer_pane.set_active_result(index, total)
@@ -395,14 +423,15 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Split failed", f"Could not split the PDF.\n\n{exc}")
 
     def open_merge_workflow(self) -> None:
-        dialog = MergeDialog(self)
+        dialog = MergeDialog(self._prepare_merge_source, self)
         if dialog.exec() != dialog.DialogCode.Accepted:
             return
         input_paths = dialog.selected_paths()
+        source_paths = dialog.selected_source_paths()
         if len(input_paths) < 2:
             QMessageBox.information(self, "Merge PDFs", "Add at least two PDFs to merge.")
             return
-        suggested = self.export_service.suggest_output_path(input_paths[0], "merged")
+        suggested = self.export_service.suggest_output_path(source_paths[0], "merged")
         output_path, _ = QFileDialog.getSaveFileName(self, "Save Merged PDF", suggested, "PDF Files (*.pdf)")
         if not output_path:
             return
@@ -470,6 +499,8 @@ class MainWindow(QMainWindow):
         track_history: bool = False,
         banner_message: str | None = None,
     ) -> None:
+        temp_output: Path | None = None
+        operation_committed = False
         try:
             if track_history:
                 self.history_service.push_undo_snapshot(self.document_manager.working_path(), description)
@@ -478,6 +509,7 @@ class MainWindow(QMainWindow):
             temp_output = Path(temp_name)
             action(temp_output)
             temp_output.replace(self.document_manager.working_path())
+            operation_committed = True
             self.document_manager.refresh_page_count()
             self.document_manager.set_dirty(True)
             self._reload_document_views()
@@ -485,6 +517,11 @@ class MainWindow(QMainWindow):
                 self.switch_mode(AppMode.EDITOR)
             self._show_banner(banner_message or f"{description} complete.")
         except Exception as exc:
+            if track_history and not operation_committed:
+                self.history_service.discard_last_undo_snapshot()
+                self._update_history_ui()
+            if temp_output and temp_output.exists():
+                temp_output.unlink(missing_ok=True)
             QMessageBox.critical(self, "Operation failed", f"Could not complete the PDF operation.\n\n{exc}")
 
     def _selected_viewer_pages(self) -> list[int]:
@@ -504,6 +541,57 @@ class MainWindow(QMainWindow):
         self.banner_label.setText(message)
         self.status_widget.update_state(message)
         self._banner_timer.start(5000)
+
+    def _refresh_home_recents(self) -> None:
+        self.home_screen.set_recent_files(self.document_manager.state.recent_files)
+
+    def _open_document_with_password_prompt(self, path: Path) -> bool:
+        password: str | None = None
+        while True:
+            try:
+                self.document_manager.open_document(path, password=password)
+                return True
+            except PdfPasswordRequiredError:
+                password = self._prompt_pdf_password(path, action_label="open")
+                if password is None:
+                    self.status_widget.update_state("Open cancelled")
+                    return False
+            except PdfInvalidPasswordError:
+                QMessageBox.warning(self, "Incorrect password", f"The password for {path.name} was incorrect.")
+                password = self._prompt_pdf_password(path, action_label="open", retry=True)
+                if password is None:
+                    self.status_widget.update_state("Open cancelled")
+                    return False
+
+    def _prepare_merge_source(self, path: Path) -> Path | None:
+        password: str | None = None
+        while True:
+            try:
+                prepared = self.pdf_access_service.prepare_pdf(path, password=password)
+                return prepared.prepared_path
+            except PdfPasswordRequiredError:
+                password = self._prompt_pdf_password(path, action_label="import for merge")
+                if password is None:
+                    return None
+            except PdfInvalidPasswordError:
+                QMessageBox.warning(self, "Incorrect password", f"The password for {path.name} was incorrect.")
+                password = self._prompt_pdf_password(path, action_label="import for merge", retry=True)
+                if password is None:
+                    return None
+
+    def _prompt_pdf_password(self, path: Path, action_label: str, retry: bool = False) -> str | None:
+        prompt = f"Enter the password to {action_label} {path.name}:"
+        if retry:
+            prompt = f"Enter the correct password to {action_label} {path.name}:"
+        password, ok = QInputDialog.getText(
+            self,
+            "PDF password required",
+            prompt,
+            QLineEdit.EchoMode.Password,
+        )
+        if not ok:
+            return None
+        return password
 
     def _confirm_discard_changes(self) -> bool:
         if not self.document_manager.state.is_dirty:

@@ -4,9 +4,11 @@ import shutil
 import tempfile
 from pathlib import Path
 
-import fitz
+from pypdf import PdfReader
 from PySide6.QtCore import QObject, Signal
 
+from pdf_app.services.pdf_access_service import PdfAccessService
+from pdf_app.services.recent_files_service import RecentFilesService
 from pdf_app.state.document_state import DocumentState
 
 
@@ -14,21 +16,25 @@ class DocumentManager(QObject):
     document_changed = Signal()
     dirty_changed = Signal(bool)
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        pdf_access_service: PdfAccessService | None = None,
+        recent_files_service: RecentFilesService | None = None,
+    ) -> None:
         super().__init__()
         self.state = DocumentState()
         self._temp_dir = Path(tempfile.mkdtemp(prefix="pdf-app-mvp-"))
+        self._pdf_access_service = pdf_access_service or PdfAccessService()
+        self._recent_files_service = recent_files_service or RecentFilesService()
+        self.state.recent_files = self._recent_files_service.load()
 
-    def open_document(self, path: str | Path) -> DocumentState:
+    def open_document(self, path: str | Path, password: str | None = None) -> DocumentState:
         source = Path(path)
         working_path = self._temp_dir / source.name
-        shutil.copy2(source, working_path)
-        document = fitz.open(working_path)
-        page_count = document.page_count
-        document.close()
+        prepared = self._pdf_access_service.prepare_pdf(source, destination_path=working_path, password=password)
         self.state.original_path = source
         self.state.working_path = working_path
-        self.state.page_count = page_count
+        self.state.page_count = prepared.page_count
         self.state.current_page = 0
         self.state.zoom_percent = 100
         self._add_recent(source)
@@ -39,10 +45,10 @@ class DocumentManager(QObject):
     def refresh_page_count(self) -> int:
         if not self.state.working_path:
             self.state.page_count = 0
+            self.state.current_page = 0
             return 0
-        document = fitz.open(self.state.working_path)
-        self.state.page_count = document.page_count
-        document.close()
+        self.state.page_count = len(PdfReader(str(self.state.working_path)).pages)
+        self.state.current_page = min(self.state.current_page, max(self.state.page_count - 1, 0))
         self.document_changed.emit()
         return self.state.page_count
 
@@ -70,6 +76,12 @@ class DocumentManager(QObject):
         return self.state.working_path
 
     def _add_recent(self, path: Path) -> None:
-        recents = [item for item in self.state.recent_files if item != path]
-        recents.insert(0, path)
-        self.state.recent_files = recents[:8]
+        self.state.recent_files = self._recent_files_service.add(path)
+
+    def remove_recent(self, path: str | Path) -> list[Path]:
+        self.state.recent_files = self._recent_files_service.remove(Path(path))
+        self.document_changed.emit()
+        return self.state.recent_files
+
+    def recent_file_status(self, path: str | Path) -> str:
+        return self._recent_files_service.status_for(Path(path))

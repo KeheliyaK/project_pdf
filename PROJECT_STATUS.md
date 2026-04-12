@@ -4,21 +4,23 @@
 PDF App MVP
 
 ## Current phase
-MVP frozen baseline
+Phase 2 hardening and release preparation - pass 2
 
 ## MVP status
-Frozen
+Frozen baseline with pass 2 hardening applied
 
 ## What is working now
 
 - Shared main window with Home, Viewer, and Editor workflows
-- Open PDF, drag-and-drop open, and a lightweight recent-files list
+- Open PDF, drag-and-drop open, and a persisted recent-files list across app restarts
 - Viewer mode with continuous scroll, zoom, full screen, thumbnails, page jump, and current-page tracking
-- Shared PDF text search wired to both the toolbar search field and the Viewer Tool Pane
+- Shared PDF text search wired to both the toolbar search field and the Viewer Tool Pane, with collapsible search controls and clearer result-position feedback
 - Editor page-organization workspace with multi-selection and drag-and-drop reorder
 - Structural operations: reorder, delete, rotate selected, rotate all, extract, split, and dedicated merge workflow
 - Save As first export flow with working-copy editing, dirty tracking, unsaved-change prompts, and write-error handling
 - Undo/redo foundation for structural edits: reorder, rotate, and delete
+- Password-protected PDFs can be opened after prompting for a password, and protected PDFs can be imported into merge flow after unlock
+- Structural edit services now validate page targets and keep page-count-changing edits, undo/redo, and Save As aligned with the working copy
 - Current automated tests for PDF operations are passing
 
 ## Latest completed fixes
@@ -28,20 +30,21 @@ Frozen
 - Repaired Editor reorder commit so drag-and-drop produces a real reordered page sequence
 - Restored a simpler compact Editor grid layout
 - Corrected internal Editor card layout so thumbnail, checkbox, and page number use a stable structure
+- Added password prompt and unlock handling for protected PDFs in document open and merge import workflows
+- Clamped current page after page-count-changing edits so delete/undo/redo reloads do not leave stale page focus
+- Prevented failed structural operations from leaving behind a bogus undo entry
+- Added validation guards for reorder, delete, rotate, extract, split, and locked merge inputs
+- Replaced in-memory recent files with persisted recent-file storage and graceful cleanup of missing or inaccessible entries
+- Made the Viewer search pane collapsible and improved active-result feedback in the Tool Pane and status bar
 
 ## Current non-blocking limitations
 
-- Viewer search panel is not collapsible
 - Search results do not visually highlight the exact in-page match region
-- Recent files are still lightweight
 - Undo/redo is snapshot-based rather than command-granular
 
 ## Immediate next phase after freeze
 
 Post-MVP polish and hardening:
-- password-protected PDF support
-- search UX polish
-- recent-files persistence improvements
 - keyboard shortcuts
 - packaging/release preparation for desktop distribution
 

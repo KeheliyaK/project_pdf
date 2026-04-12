@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 from PySide6.QtCore import Qt
@@ -16,10 +17,11 @@ from PySide6.QtWidgets import (
 
 
 class MergeDialog(QDialog):
-    def __init__(self, parent=None) -> None:
+    def __init__(self, import_resolver: Callable[[Path], Path | None] | None = None, parent=None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Merge PDFs")
         self.resize(520, 380)
+        self._import_resolver = import_resolver
         self.file_list = QListWidget()
         self.file_list.setDragDropMode(QListWidget.DragDropMode.InternalMove)
 
@@ -48,11 +50,25 @@ class MergeDialog(QDialog):
     def _add_files(self) -> None:
         paths, _ = QFileDialog.getOpenFileNames(self, "Select PDFs", "", "PDF Files (*.pdf)")
         for path in paths:
-            self.file_list.addItem(QListWidgetItem(path))
+            source_path = Path(path)
+            prepared_path = self._import_resolver(source_path) if self._import_resolver else source_path
+            if prepared_path is None:
+                continue
+            item = QListWidgetItem(path)
+            item.setData(Qt.ItemDataRole.UserRole, str(prepared_path))
+            self.file_list.addItem(item)
 
     def _remove_selected(self) -> None:
         for item in self.file_list.selectedItems():
             self.file_list.takeItem(self.file_list.row(item))
 
     def selected_paths(self) -> list[Path]:
+        selected_paths: list[Path] = []
+        for index in range(self.file_list.count()):
+            item = self.file_list.item(index)
+            prepared = item.data(Qt.ItemDataRole.UserRole)
+            selected_paths.append(Path(prepared or item.text()))
+        return selected_paths
+
+    def selected_source_paths(self) -> list[Path]:
         return [Path(self.file_list.item(index).text()) for index in range(self.file_list.count())]

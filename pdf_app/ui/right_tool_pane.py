@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QPushButton,
     QStackedWidget,
+    QToolButton,
     QVBoxLayout,
     QWidget,
     QLineEdit,
@@ -26,22 +27,41 @@ class ViewerToolPane(QWidget):
     def __init__(self) -> None:
         super().__init__()
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel("Search"))
+        layout.setSpacing(10)
+
+        self.search_toggle = QToolButton()
+        self.search_toggle.setText("Search")
+        self.search_toggle.setCheckable(True)
+        self.search_toggle.setChecked(True)
+        self.search_toggle.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.search_toggle.setArrowType(Qt.ArrowType.DownArrow)
+        layout.addWidget(self.search_toggle)
+
+        self.search_panel = QWidget()
+        search_layout = QVBoxLayout(self.search_panel)
+        search_layout.setContentsMargins(0, 0, 0, 0)
+        search_layout.setSpacing(8)
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Find text")
-        layout.addWidget(self.search_input)
+        search_layout.addWidget(self.search_input)
 
         nav_row = QHBoxLayout()
         self.prev_button = QPushButton("Previous")
         self.next_button = QPushButton("Next")
         nav_row.addWidget(self.prev_button)
         nav_row.addWidget(self.next_button)
-        layout.addLayout(nav_row)
+        search_layout.addLayout(nav_row)
 
-        self.result_label = QLabel("0 results")
+        self.result_label = QLabel("No active search")
+        self.result_label.setStyleSheet("color: #475569;")
+        self.search_hint_label = QLabel("Enter a term to search this document.")
+        self.search_hint_label.setStyleSheet("color: #64748b;")
         self.results_list = QListWidget()
-        layout.addWidget(self.result_label)
-        layout.addWidget(self.results_list, 1)
+        self.results_list.setAlternatingRowColors(True)
+        search_layout.addWidget(self.result_label)
+        search_layout.addWidget(self.search_hint_label)
+        search_layout.addWidget(self.results_list, 1)
+        layout.addWidget(self.search_panel, 1)
 
         selected_box = QFrame()
         selected_layout = QVBoxLayout(selected_box)
@@ -75,18 +95,45 @@ class ViewerToolPane(QWidget):
         self.rotate_all_cw.clicked.connect(lambda: self.rotate_all_requested.emit(90))
         self.rotate_all_ccw.clicked.connect(lambda: self.rotate_all_requested.emit(-90))
         self.rotate_all_180.clicked.connect(lambda: self.rotate_all_requested.emit(180))
+        self.search_toggle.toggled.connect(self._set_search_panel_visible)
+        self._set_search_panel_visible(True)
+        self.prev_button.setEnabled(False)
+        self.next_button.setEnabled(False)
 
     def set_results(self, results: list) -> None:
         self.results_list.clear()
+        if not results:
+            self.result_label.setText("No active search")
+            self.search_hint_label.setText("Enter a term to search this document.")
+            self.prev_button.setEnabled(False)
+            self.next_button.setEnabled(False)
+            return
         self.result_label.setText(f"{len(results)} results")
+        self.search_hint_label.setText("Select a result or use Previous/Next to move through matches.")
+        self.prev_button.setEnabled(len(results) > 1)
+        self.next_button.setEnabled(len(results) > 1)
         for result in results:
             text = f"Page {result.page_index + 1}: {result.snippet}"
             self.results_list.addItem(QListWidgetItem(text))
 
     def set_active_result(self, index: int, total: int) -> None:
         self.result_label.setText(f"Result {index} of {total}")
+        self.search_hint_label.setText(f"Viewing match {index} of {total}. Navigation wraps at the ends.")
         if 0 < index <= self.results_list.count():
             self.results_list.setCurrentRow(index - 1)
+
+    def set_search_collapsed(self, collapsed: bool) -> None:
+        self.search_toggle.setChecked(not collapsed)
+
+    def show_no_results(self, query: str) -> None:
+        self.result_label.setText("No results")
+        self.search_hint_label.setText(f"No matches found for '{query}'.")
+        self.prev_button.setEnabled(False)
+        self.next_button.setEnabled(False)
+
+    def _set_search_panel_visible(self, visible: bool) -> None:
+        self.search_panel.setVisible(visible)
+        self.search_toggle.setArrowType(Qt.ArrowType.DownArrow if visible else Qt.ArrowType.RightArrow)
 
     def _emit_search(self) -> None:
         self.search_requested.emit(self.search_input.text())

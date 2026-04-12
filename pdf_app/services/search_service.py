@@ -20,8 +20,8 @@ class SearchService(QObject):
         self.active_index = -1
 
     def search(self, pdf_path: Path | None, query: str) -> list[SearchResult]:
-        self.query = query
-        self.results = self.engine.search(pdf_path, query) if pdf_path else []
+        self.query = query.strip()
+        self.results = self.engine.search(pdf_path, self.query) if pdf_path and self.query else []
         self.active_index = 0 if self.results else -1
         self.results_updated.emit(self.results)
         if self.results:
@@ -53,6 +53,7 @@ class SearchService(QObject):
                 break
 
     def clear(self) -> None:
+        self.query = ""
         self.results = []
         self.active_index = -1
         self.results_updated.emit([])

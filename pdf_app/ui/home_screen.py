@@ -7,6 +7,7 @@ from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
     QLabel,
     QListWidget,
+    QListWidgetItem,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -55,7 +56,8 @@ class HomeScreen(QWidget):
             self.recent_list.addItem("No recent files yet")
             return
         for path in paths:
-            self.recent_list.addItem(str(path))
+            item = self._build_recent_item(path)
+            self.recent_list.addItem(item)
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         if event.mimeData().hasUrls():
@@ -70,6 +72,19 @@ class HomeScreen(QWidget):
             self.file_dropped.emit(first_path)
 
     def _handle_recent_open(self, item) -> None:
-        path = item.text()
+        path = item.data(Qt.ItemDataRole.UserRole) or item.text()
         if path.lower().endswith(".pdf"):
             self.recent_open_requested.emit(path)
+
+    def _build_recent_item(self, path: Path) -> QListWidgetItem:
+        item = QListWidgetItem(path.name)
+        item.setData(Qt.ItemDataRole.UserRole, str(path))
+        item.setToolTip(str(path))
+        if path.exists():
+            item.setText(f"{path.name}\n{path}")
+        else:
+            item.setText(f"{path.name} (missing)\n{path}")
+            item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEnabled)
+            item.setForeground(Qt.GlobalColor.gray)
+            item.setToolTip(f"Missing file:\n{path}")
+        return item

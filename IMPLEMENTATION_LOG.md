@@ -28,10 +28,32 @@
 - Confirmed the current verification baseline: `pytest` passes and `python3 -m compileall pdf_app tests` passes
 - Intentionally deferred the next phase of work to:
   - annotation tools
-  - password-protected PDF support
   - richer recent-files persistence
   - search UX polish and in-page highlighting
   - keyboard shortcuts and packaging/release polish
+
+## Phase 2 - Post-MVP hardening and release preparation (pass 1)
+
+- Reviewed the structural edit path across reorder, delete, rotate, extract, split, undo/redo, and Save As to keep changes incremental on top of the frozen MVP architecture.
+- Added `PdfAccessService` to centralize password-protected PDF handling without rewriting Viewer/Editor workflows or the working-copy model.
+- Wired protected-PDF password prompting into standard open flow and merge import flow, with retry-on-error handling and clean cancel behavior.
+- Kept protected documents compatible with Viewer mode, Editor mode, search, structural edits, dirty tracking, undo/redo, and Save As by unlocking into the existing temporary working copy.
+- Hardened `PdfOperationService` with validation for malformed reorder sequences, duplicate page targets, out-of-range indices, split bounds, and encrypted merge inputs.
+- Fixed page-count refresh behavior so delete/undo/redo clamps the current page after structural edits that remove pages.
+- Fixed failed structural operations so a pre-operation undo snapshot is discarded when the operation does not complete, preventing false undo availability.
+- Expanded automated coverage for protected-PDF unlock behavior, structural validation, page-count clamping, and failed-history cleanup.
+- Confirmed the current verification baseline in the project venv: `./.venv/bin/pytest` passes and `./.venv/bin/python -m compileall pdf_app tests` passes.
+
+## Phase 2 - Post-MVP hardening and release preparation (pass 2)
+
+- Kept the existing shared search service and Viewer workflow intact while making the Viewer Tool Pane search section collapsible.
+- Improved search result feedback with clearer idle, no-result, count, and active-position messaging in the Tool Pane and status bar.
+- Replaced the in-memory recent-files list with `RecentFilesService`, backed by persisted JSON storage under the app config directory.
+- Loaded persisted recents during `DocumentManager` startup and continued updating them through the same document-open path so working-copy editing and Save As behavior were unaffected.
+- Added graceful handling for missing or inaccessible recent files by warning the user, removing stale entries from persistence, and refreshing the Home screen list.
+- Kept the Home screen simple by continuing to surface a single recent-files list, now with missing entries clearly marked instead of crashing or silently failing.
+- Expanded automated coverage for persisted recent-files behavior and blank-query search handling.
+- Confirmed the current verification baseline in the project venv: `./.venv/bin/pytest` passes and `./.venv/bin/python -m compileall pdf_app tests` passes.
 
 ## Phase and requirement coverage
 
@@ -40,13 +62,11 @@
 
 ## Assumptions made
 
-- Recent files remain a lightweight implementation rather than a fully polished persisted feature
 - Search navigation is usable at MVP level without exact in-page highlight overlays
 - Undo/redo uses working-copy snapshot history as the current practical MVP implementation
 
 ## Deferred items
 
 - Annotation tools and annotation UI
-- Password-protected PDF support
 - Keyboard shortcuts and packaging polish
-- Advanced in-page search highlighting and richer recent-files persistence
+- Advanced in-page search highlighting
