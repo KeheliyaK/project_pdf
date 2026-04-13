@@ -9,6 +9,7 @@ from PySide6.QtGui import QAction, QDragEnterEvent, QDropEvent, QIcon, QKeySeque
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
+    QHBoxLayout,
     QInputDialog,
     QLabel,
     QLineEdit,
@@ -40,6 +41,7 @@ from pdf_app.services.unified_history_service import UnifiedHistoryService
 from pdf_app.state.mode_state import AppMode
 from pdf_app.ui.dialogs.merge_dialog import MergeDialog
 from pdf_app.ui.dialogs.shortcut_guide_dialog import ShortcutGuideDialog
+from pdf_app.ui.app_tool_rail import AppToolRail, TOOL_HIGHLIGHT, TOOL_SEARCH, TOOL_UNDERLINE
 from pdf_app.ui.edit_mode_ui import EditorWorkspace
 from pdf_app.ui.home_screen import HomeScreen
 from pdf_app.ui.right_tool_pane import RightToolPane
@@ -77,6 +79,7 @@ class MainWindow(QMainWindow):
         self.left_pane = QListWidget()
         self.center_stack = QStackedWidget()
         self.right_pane = RightToolPane()
+        self.tool_rail = AppToolRail()
         self.home_screen = HomeScreen()
         self.viewer_workspace = ViewerWorkspace(self.render_service)
         self.viewer_workspace.set_annotation_provider(self._annotations_for_page)
@@ -93,6 +96,8 @@ class MainWindow(QMainWindow):
         self._update_history_ui()
         self._update_annotation_ui()
         self.right_pane.show_placeholder()
+        self.right_pane.hide_context_panel()
+        self.tool_rail.set_mode("home")
         self._refresh_home_recents()
 
     def _build_ui(self) -> None:
@@ -116,22 +121,29 @@ class MainWindow(QMainWindow):
             "QListWidget::item:selected { border: 2px solid #3b82a0; background: #edf6fb; }"
         )
 
+        content_widget = QWidget()
+        content_layout = QHBoxLayout(content_widget)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setSpacing(0)
+
         splitter = QSplitter()
         splitter.addWidget(self.left_pane)
         splitter.addWidget(self.center_stack)
-        splitter.addWidget(self.right_pane)
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
-        splitter.setStretchFactor(2, 0)
-        splitter.setSizes([250, 920, 320])
+        splitter.setSizes([250, 920])
+
+        content_layout.addWidget(splitter, 1)
+        content_layout.addWidget(self.tool_rail, 0)
 
         self.center_stack.addWidget(self.home_screen)
         self.center_stack.addWidget(self.viewer_workspace)
         self.center_stack.addWidget(self.editor_workspace)
 
-        shell_layout.addWidget(splitter, 1)
+        shell_layout.addWidget(content_widget, 1)
         shell_layout.addWidget(self.status_widget)
         self.setCentralWidget(shell)
+        self.right_pane.setParent(shell)
 
     def _build_menus(self) -> None:
         menu_bar = self.menuBar()
@@ -232,15 +244,11 @@ class MainWindow(QMainWindow):
         self.delete_annotation_shortcut.activated.connect(self.delete_selected_annotations)
 
     def _connect_signals(self) -> None:
-        self.toolbar_widget.open_requested.connect(self.open_pdf_dialog)
         self.toolbar_widget.merge_requested.connect(self.open_merge_workflow)
-        self.toolbar_widget.save_as_requested.connect(self.save_as_dialog)
         self.toolbar_widget.viewer_mode_requested.connect(lambda: self.switch_mode(AppMode.VIEWER))
         self.toolbar_widget.editor_mode_requested.connect(self._switch_to_editor)
         self.toolbar_widget.undo_requested.connect(self.undo_last_action)
         self.toolbar_widget.redo_requested.connect(self.redo_last_action)
-        self.toolbar_widget.zoom_in_requested.connect(lambda: self.adjust_zoom(10))
-        self.toolbar_widget.zoom_out_requested.connect(lambda: self.adjust_zoom(-10))
         self.toolbar_widget.fullscreen_requested.connect(self._toggle_fullscreen)
         self.toolbar_widget.search_requested.connect(self.perform_search)
 
@@ -285,6 +293,21 @@ class MainWindow(QMainWindow):
         self.right_pane.editor_pane.rotate_all_requested.connect(self.rotate_all_pages)
         self.right_pane.editor_pane.extract_requested.connect(self.extract_selected_pages)
         self.right_pane.editor_pane.split_requested.connect(self.split_by_range)
+        self.tool_rail.tool_selected.connect(self._on_rail_tool_selected)
+        self.tool_rail.tool_deselected.connect(self._on_rail_tool_deselected)
+        self.tool_rail.zoom_in_requested.connect(lambda: self.adjust_zoom(10))
+        self.tool_rail.zoom_out_requested.connect(lambda: self.adjust_zoom(-10))
+        self.tool_rail.rotate_page_cw_requested.connect(lambda: self.rotate_current_or_selected_pages(90))
+        self.tool_rail.rotate_page_ccw_requested.connect(lambda: self.rotate_current_or_selected_pages(-90))
+        self.tool_rail.rotate_doc_cw_requested.connect(lambda: self.rotate_all_pages(90))
+        self.tool_rail.rotate_doc_ccw_requested.connect(lambda: self.rotate_all_pages(-90))
+        self.tool_rail.cancel_tool_requested.connect(self.clear_active_annotation_tool)
+        self.tool_rail.delete_annotation_requested.connect(self.delete_selected_annotations)
+        self.tool_rail.reset_annotations_requested.connect(self.reset_document_annotations)
+        self.tool_rail.extract_pages_requested.connect(self.extract_selected_pages)
+        self.tool_rail.split_requested.connect(self.split_by_range)
+        self.tool_rail.delete_pages_requested.connect(self.delete_selected_pages)
+        self.right_pane.close_requested.connect(self._hide_search_context_panel)
 
         self.search_service.results_updated.connect(self.right_pane.viewer_pane.set_results)
         self.search_service.active_result_changed.connect(self._activate_search_result)
@@ -364,10 +387,12 @@ class MainWindow(QMainWindow):
         normalized_query = query.strip()
         self.right_pane.viewer_pane.search_input.setText(query)
         self.toolbar_widget.search_input.setText(query)
-        self.right_pane.viewer_pane.set_search_collapsed(False)
         if not normalized_query:
+            self._hide_search_context_panel()
             self.status_widget.update_state("Search cleared")
             return
+        self.clear_active_annotation_tool()
+        self._show_search_context_panel()
         if results:
             self.status_widget.update_state(f"{len(results)} result(s) for '{normalized_query}'")
         else:
@@ -375,6 +400,7 @@ class MainWindow(QMainWindow):
             self.status_widget.update_state(f"No results for '{normalized_query}'")
 
     def _activate_search_result(self, result, index: int, total: int) -> None:
+        self._show_search_context_panel()
         self.right_pane.viewer_pane.set_active_result(index, total)
         self.jump_to_page(result.page_index)
         self.status_widget.update_state(f"Search result {index} of {total}")
@@ -386,20 +412,42 @@ class MainWindow(QMainWindow):
         if mode == AppMode.HOME:
             self.center_stack.setCurrentWidget(self.home_screen)
             self.right_pane.show_placeholder()
+            self.right_pane.hide_context_panel()
             self.toolbar_widget.set_mode("")
+            self.tool_rail.set_mode("home")
         elif mode == AppMode.VIEWER:
             self.center_stack.setCurrentWidget(self.viewer_workspace)
             self.right_pane.show_viewer()
+            self.right_pane.hide_context_panel()
             self.toolbar_widget.set_mode("viewer")
+            self.tool_rail.set_mode("viewer")
         elif mode == AppMode.EDITOR:
             self.center_stack.setCurrentWidget(self.editor_workspace)
             self.right_pane.show_editor()
+            self.right_pane.hide_context_panel()
             self.toolbar_widget.set_mode("editor")
+            self.tool_rail.set_mode("editor")
 
     def _switch_to_editor(self) -> None:
         if not self.document_manager.state.has_document:
             return
         self.switch_mode(AppMode.EDITOR)
+
+    def _on_rail_tool_selected(self, tool_name: str) -> None:
+        if tool_name == TOOL_SEARCH:
+            self.focus_search()
+            return
+        if tool_name == TOOL_HIGHLIGHT:
+            self._hide_search_context_panel()
+            self.set_active_annotation_tool(AnnotationType.HIGHLIGHT)
+            return
+        if tool_name == TOOL_UNDERLINE:
+            self._hide_search_context_panel()
+            self.set_active_annotation_tool(AnnotationType.UNDERLINE)
+
+    def _on_rail_tool_deselected(self) -> None:
+        self.clear_active_annotation_tool()
+        self._hide_search_context_panel()
 
     def _thumbnail_clicked(self, item: QListWidgetItem) -> None:
         page_index = item.data(Qt.ItemDataRole.UserRole)
@@ -470,7 +518,7 @@ class MainWindow(QMainWindow):
         self.status_widget.update_page_status(page_index, state.page_count)
         if 0 <= page_index < self.left_pane.count():
             self.left_pane.setCurrentRow(page_index)
-        self.search_service.sync_to_page(page_index)
+        self._sync_search_to_page(page_index)
 
     def jump_to_page(self, page_index: int) -> None:
         state = self.document_manager.state
@@ -479,7 +527,7 @@ class MainWindow(QMainWindow):
         self.document_manager.set_current_page(page_index)
         self.viewer_workspace.scroll_to_page(page_index)
         self.status_widget.update_page_status(page_index, state.page_count)
-        self.search_service.sync_to_page(page_index)
+        self._sync_search_to_page(page_index)
         if 0 <= page_index < self.left_pane.count():
             self.left_pane.setCurrentRow(page_index)
 
@@ -741,6 +789,10 @@ class MainWindow(QMainWindow):
     def set_active_annotation_tool(self, annotation_type: AnnotationType) -> None:
         self.active_annotation_tool = annotation_type
         self.selected_annotation_ids.clear()
+        if annotation_type == AnnotationType.HIGHLIGHT:
+            self.tool_rail.set_active_tool(TOOL_HIGHLIGHT)
+        elif annotation_type == AnnotationType.UNDERLINE:
+            self.tool_rail.set_active_tool(TOOL_UNDERLINE)
         self.right_pane.viewer_pane.set_annotation_tool(annotation_type)
         self._sync_annotation_tool_state()
         self._update_annotation_ui()
@@ -748,6 +800,8 @@ class MainWindow(QMainWindow):
 
     def clear_active_annotation_tool(self) -> None:
         self.active_annotation_tool = None
+        if self.tool_rail.active_tool() in {TOOL_HIGHLIGHT, TOOL_UNDERLINE}:
+            self.tool_rail.set_active_tool(None)
         self.right_pane.viewer_pane.set_annotation_tool(None)
         self._sync_annotation_tool_state()
         self._update_annotation_ui()
@@ -870,7 +924,7 @@ class MainWindow(QMainWindow):
         if not self.document_manager.state.has_document:
             return
         self.switch_mode(AppMode.VIEWER)
-        self.right_pane.viewer_pane.set_search_collapsed(False)
+        self._show_search_context_panel()
         self.toolbar_widget.search_input.setFocus()
         self.toolbar_widget.search_input.selectAll()
 
@@ -881,14 +935,14 @@ class MainWindow(QMainWindow):
         if not self.document_manager.state.has_document or not self.search_service.results:
             return
         self.switch_mode(AppMode.VIEWER)
-        self.right_pane.viewer_pane.set_search_collapsed(False)
+        self._show_search_context_panel()
         self.search_service.next_result()
 
     def search_previous_result(self) -> None:
         if not self.document_manager.state.has_document or not self.search_service.results:
             return
         self.switch_mode(AppMode.VIEWER)
-        self.right_pane.viewer_pane.set_search_collapsed(False)
+        self._show_search_context_panel()
         self.search_service.previous_result()
 
     def next_page(self) -> None:
@@ -946,6 +1000,49 @@ class MainWindow(QMainWindow):
         if self.mode != AppMode.VIEWER or self._has_text_input_focus():
             return
         self.clear_active_annotation_tool()
+
+    def _show_search_context_panel(self) -> None:
+        if not self.document_manager.state.has_document:
+            return
+        self.right_pane.show_search_context()
+        self._position_search_context_panel()
+        self.tool_rail.set_active_tool(TOOL_SEARCH)
+
+    def _hide_search_context_panel(self) -> None:
+        self.right_pane.hide_context_panel()
+        if self.tool_rail.active_tool() == TOOL_SEARCH:
+            self.tool_rail.set_active_tool(None)
+
+    def resizeEvent(self, event) -> None:  # type: ignore[override]
+        super().resizeEvent(event)
+        if self.right_pane.isVisible():
+            self._position_search_context_panel()
+
+    def moveEvent(self, event) -> None:  # type: ignore[override]
+        super().moveEvent(event)
+        if self.right_pane.isVisible():
+            self._position_search_context_panel()
+
+    def _position_search_context_panel(self) -> None:
+        anchor = self.toolbar_widget.search_input
+        shell = self.centralWidget()
+        if shell is None:
+            return
+        anchor_bottom_left = anchor.mapTo(shell, anchor.rect().bottomLeft())
+        x = anchor_bottom_left.x()
+        y = anchor_bottom_left.y() + 8
+        max_x = max(shell.width() - self.right_pane.width() - 12, 12)
+        x = min(max(12, x), max_x)
+        self.right_pane.move(x, y)
+
+    def _sync_search_to_page(self, page_index: int) -> None:
+        if not self.search_service.sync_to_page(page_index):
+            return
+        active_state = self.search_service.active_result_state()
+        if active_state is None:
+            return
+        _, index, total = active_state
+        self.right_pane.viewer_pane.set_active_result(index, total)
 
     def _select_annotation_at(self, page_index: int, document_x: float, document_y: float) -> None:
         annotation = self._find_selectable_annotation_at(page_index, document_x, document_y)

@@ -28,17 +28,13 @@ class MainToolbar(QWidget):
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(8)
 
-        self.open_button = QPushButton("Open")
         self.merge_button = QPushButton("Merge PDFs")
-        self.save_button = QPushButton("Save As")
         self.viewer_button = QPushButton("Viewer")
         self.editor_button = QPushButton("Editor")
         self.viewer_button.setCheckable(True)
         self.editor_button.setCheckable(True)
         self.undo_button = QPushButton("Undo")
         self.redo_button = QPushButton("Redo")
-        self.zoom_out_button = QPushButton("-")
-        self.zoom_in_button = QPushButton("+")
         self.fullscreen_button = QPushButton("Full Screen")
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Search in document")
@@ -46,28 +42,20 @@ class MainToolbar(QWidget):
         for button in (self.viewer_button, self.editor_button):
             button.setAutoExclusive(True)
 
-        layout.addWidget(self.open_button)
         layout.addWidget(self.merge_button)
-        layout.addWidget(self.save_button)
         layout.addWidget(self.viewer_button)
         layout.addWidget(self.editor_button)
         layout.addWidget(self.undo_button)
         layout.addWidget(self.redo_button)
         layout.addStretch(1)
-        layout.addWidget(self.zoom_out_button)
-        layout.addWidget(self.zoom_in_button)
         layout.addWidget(self.fullscreen_button)
         layout.addWidget(self.search_input, 1)
 
-        self.open_button.clicked.connect(self.open_requested.emit)
         self.merge_button.clicked.connect(self.merge_requested.emit)
-        self.save_button.clicked.connect(self.save_as_requested.emit)
         self.viewer_button.clicked.connect(self.viewer_mode_requested.emit)
         self.editor_button.clicked.connect(self.editor_mode_requested.emit)
         self.undo_button.clicked.connect(self.undo_requested.emit)
         self.redo_button.clicked.connect(self.redo_requested.emit)
-        self.zoom_in_button.clicked.connect(self.zoom_in_requested.emit)
-        self.zoom_out_button.clicked.connect(self.zoom_out_requested.emit)
         self.fullscreen_button.clicked.connect(self.fullscreen_requested.emit)
         self.search_input.returnPressed.connect(self._emit_search)
 
@@ -77,13 +65,10 @@ class MainToolbar(QWidget):
 
     def set_document_controls_enabled(self, enabled: bool) -> None:
         for widget in (
-            self.save_button,
             self.viewer_button,
             self.editor_button,
             self.undo_button,
             self.redo_button,
-            self.zoom_out_button,
-            self.zoom_in_button,
             self.fullscreen_button,
             self.search_input,
         ):

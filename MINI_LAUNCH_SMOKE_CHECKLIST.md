@@ -1,48 +1,34 @@
 # Mini Launch Smoke Checklist
 
-Use this checklist before sharing a new macOS preview `.app` build.
+Use this checklist before sharing a desktop build or treating the frozen MVP as ready for handoff/review.
 
-## Build and launch
+## Launch and open
 
-- Build the app with `bash scripts/build_macos_app.sh`
-- Launch the packaged app with `open "dist/PDF App MVP.app"`
-- Confirm the app window opens without needing `python -m ...`
-
-## Open flows
-
-- Open a normal PDF from `File > Open PDF`
+- Launch the app successfully
+- Open a normal PDF
 - Open a password-protected PDF and confirm the password prompt works
-- Confirm canceling the password prompt returns cleanly without a broken document state
-- Confirm Home recent files still open correctly after restart
+- Confirm recent files still open correctly
 
-## Viewer basics
+## Viewer smoke test
 
-- Confirm page thumbnails, page jump, zoom, and left/right page navigation still work
-- Confirm search still finds results, navigates next/previous, and updates result feedback
-- Confirm full screen still toggles correctly
+- Confirm thumbnails, page jump, zoom, and full screen still work
+- Confirm search returns results and next/previous navigation works
+- Confirm highlight and underline can still be created and selected
+- Confirm annotation delete/reset still works
 
-## Editor basics
+## Editor smoke test
 
-- Switch to `Editor` mode and confirm page cards load correctly
-- Reorder pages and confirm Undo/Redo restores the expected page order
-- Delete and rotate pages, then confirm Save As still exports the working copy
+- Switch to `Editor` mode and confirm page cards render correctly
+- Reorder pages and confirm Undo/Redo still works
+- Confirm rotate, extract, split, and delete still launch/work as expected from the current Editor controls
 
-## Annotation mini-launch scope
+## Save/export honesty
 
-- In `Viewer`, activate `Highlight` and drag to create a highlight
-- Activate `Underline` and drag to create an underline
-- Click an existing highlight or underline to select it
-- Use `Delete Selected` and keyboard `Delete` to remove a selected annotation
-- Use `Reset Document Annotations` and confirm the reset prompt appears
-- Confirm top-level `Undo` / `Redo` reverses and reapplies highlight/underline add, delete, and reset actions
+- Run `Save As` after structural edits and confirm output is written
+- Run `Save As` after annotation work and confirm the app still does not imply annotations were embedded if they were not
 
-## Save As honesty
+## Freeze check
 
-- Use `Save As` after structural edits and confirm output is written
-- Use `Save As` after highlight/underline work and confirm the app still makes it clear annotations are not embedded into the exported PDF yet
-
-## Launch-facing scope check
-
-- Confirm only `Highlight` and `Underline` are visible as annotation tools
-- Confirm unfinished text box functionality is not exposed in the visible mini-launch UI
-- Confirm `Help > Keyboard Shortcuts` reflects the current visible shortcut set
+- Confirm the documented MVP feature set in `README.md` still matches the app
+- Confirm no unreviewed desktop feature additions slipped in during freeze work
+- Confirm the next phase is still documented as web planning/implementation

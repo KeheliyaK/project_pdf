@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from pdf_app.annotations.models import AnnotationType
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSignalBlocker, Qt, Signal
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -22,6 +23,7 @@ class ViewerToolPane(QWidget):
     previous_requested = Signal()
     next_requested = Signal()
     result_activated = Signal(int)
+    compact_close_requested = Signal()
     annotation_tool_selected = Signal(object)
     annotation_tool_cleared = Signal()
     annotation_reset_requested = Signal()
@@ -31,6 +33,8 @@ class ViewerToolPane(QWidget):
 
     def __init__(self) -> None:
         super().__init__()
+        self.setObjectName("viewerToolPane")
+        self._compact_search_mode = False
         layout = QVBoxLayout(self)
         layout.setSpacing(10)
 
@@ -43,9 +47,28 @@ class ViewerToolPane(QWidget):
         layout.addWidget(self.search_toggle)
 
         self.search_panel = QWidget()
+        self.search_panel.setObjectName("searchPanel")
+        self.search_panel.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         search_layout = QVBoxLayout(self.search_panel)
-        search_layout.setContentsMargins(0, 0, 0, 0)
+        search_layout.setContentsMargins(12, 12, 12, 12)
         search_layout.setSpacing(8)
+        self.compact_header = QWidget()
+        self.compact_header.setObjectName("searchHeader")
+        self.compact_header.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        compact_header_layout = QHBoxLayout(self.compact_header)
+        compact_header_layout.setContentsMargins(10, 8, 10, 8)
+        compact_header_layout.setSpacing(8)
+        self.compact_title_label = QLabel("Search")
+        self.compact_title_label.setObjectName("compactTitleLabel")
+        self.compact_close_button = QToolButton()
+        self.compact_close_button.setText("Close")
+        self.compact_close_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.compact_close_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
+        self.compact_close_button.setAutoRaise(True)
+        compact_header_layout.addWidget(self.compact_title_label)
+        compact_header_layout.addStretch(1)
+        compact_header_layout.addWidget(self.compact_close_button)
+        search_layout.addWidget(self.compact_header)
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Find text")
         search_layout.addWidget(self.search_input)
@@ -58,18 +81,21 @@ class ViewerToolPane(QWidget):
         search_layout.addLayout(nav_row)
 
         self.result_label = QLabel("No active search")
-        self.result_label.setStyleSheet("color: #475569;")
+        self.result_label.setObjectName("searchResultLabel")
         self.search_hint_label = QLabel("Enter a term to search this document.")
-        self.search_hint_label.setStyleSheet("color: #64748b;")
+        self.search_hint_label.setObjectName("searchHintLabel")
         self.results_list = QListWidget()
+        self.results_list.setObjectName("searchResultsList")
+        self.results_list.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.results_list.viewport().setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.results_list.setAlternatingRowColors(True)
         search_layout.addWidget(self.result_label)
         search_layout.addWidget(self.search_hint_label)
         search_layout.addWidget(self.results_list, 1)
         layout.addWidget(self.search_panel, 1)
 
-        annotation_box = QFrame()
-        annotation_layout = QVBoxLayout(annotation_box)
+        self.annotation_box = QFrame()
+        annotation_layout = QVBoxLayout(self.annotation_box)
         annotation_layout.addWidget(QLabel("Annotations"))
         self.annotation_status_label = QLabel("No annotation tool active")
         self.annotation_status_label.setStyleSheet("color: #475569;")
@@ -88,10 +114,10 @@ class ViewerToolPane(QWidget):
         annotation_layout.addWidget(self.reset_annotations_button)
         annotation_layout.addWidget(self.clear_tool_button)
         annotation_layout.addWidget(self.annotation_status_label)
-        layout.addWidget(annotation_box)
+        layout.addWidget(self.annotation_box)
 
-        selected_box = QFrame()
-        selected_layout = QVBoxLayout(selected_box)
+        self.selected_box = QFrame()
+        selected_layout = QVBoxLayout(self.selected_box)
         selected_layout.addWidget(QLabel("Current / Selected Pages"))
         self.rotate_selected_cw = QPushButton("Rotate 90° CW")
         self.rotate_selected_ccw = QPushButton("Rotate 90° CCW")
@@ -99,10 +125,10 @@ class ViewerToolPane(QWidget):
         selected_layout.addWidget(self.rotate_selected_cw)
         selected_layout.addWidget(self.rotate_selected_ccw)
         selected_layout.addWidget(self.rotate_selected_180)
-        layout.addWidget(selected_box)
+        layout.addWidget(self.selected_box)
 
-        all_box = QFrame()
-        all_layout = QVBoxLayout(all_box)
+        self.all_box = QFrame()
+        all_layout = QVBoxLayout(self.all_box)
         all_layout.addWidget(QLabel("Whole Document"))
         self.rotate_all_cw = QPushButton("Rotate All 90° CW")
         self.rotate_all_ccw = QPushButton("Rotate All 90° CCW")
@@ -110,7 +136,7 @@ class ViewerToolPane(QWidget):
         all_layout.addWidget(self.rotate_all_cw)
         all_layout.addWidget(self.rotate_all_ccw)
         all_layout.addWidget(self.rotate_all_180)
-        layout.addWidget(all_box)
+        layout.addWidget(self.all_box)
 
         self.search_input.returnPressed.connect(self._emit_search)
         self.prev_button.clicked.connect(self.previous_requested.emit)
@@ -128,14 +154,17 @@ class ViewerToolPane(QWidget):
         self.delete_annotation_button.clicked.connect(self.annotation_delete_requested.emit)
         self.reset_annotations_button.clicked.connect(self.annotation_reset_requested.emit)
         self.clear_tool_button.clicked.connect(self._clear_annotation_tool)
+        self.compact_close_button.clicked.connect(self.compact_close_requested.emit)
         self.search_toggle.toggled.connect(self._set_search_panel_visible)
         self._set_search_panel_visible(True)
         self.prev_button.setEnabled(False)
         self.next_button.setEnabled(False)
         self.delete_annotation_button.setEnabled(False)
         self.reset_annotations_button.setEnabled(False)
+        self.compact_header.setVisible(False)
 
     def set_results(self, results: list) -> None:
+        blocker = QSignalBlocker(self.results_list)
         self.results_list.clear()
         if not results:
             self.result_label.setText("No active search")
@@ -150,15 +179,34 @@ class ViewerToolPane(QWidget):
         for result in results:
             text = f"Page {result.page_index + 1}: {result.snippet}"
             self.results_list.addItem(QListWidgetItem(text))
+        del blocker
 
     def set_active_result(self, index: int, total: int) -> None:
         self.result_label.setText(f"Result {index} of {total}")
         self.search_hint_label.setText(f"Viewing match {index} of {total}. Navigation wraps at the ends.")
         if 0 < index <= self.results_list.count():
+            blocker = QSignalBlocker(self.results_list)
             self.results_list.setCurrentRow(index - 1)
+            item = self.results_list.item(index - 1)
+            if item is not None:
+                self.results_list.scrollToItem(item)
+            del blocker
 
     def set_search_collapsed(self, collapsed: bool) -> None:
         self.search_toggle.setChecked(not collapsed)
+
+    def set_compact_search_mode(self, active: bool) -> None:
+        self._compact_search_mode = active
+        self.search_toggle.setVisible(not active)
+        self.compact_header.setVisible(active)
+        self.search_input.setVisible(not active)
+        self.annotation_box.setVisible(not active)
+        self.selected_box.setVisible(not active)
+        self.all_box.setVisible(not active)
+        if active:
+            self.search_panel.setVisible(True)
+        else:
+            self._set_search_panel_visible(self.search_toggle.isChecked())
 
     def show_no_results(self, query: str) -> None:
         self.result_label.setText("No results")
@@ -266,8 +314,11 @@ class EditorToolPane(QWidget):
         self.split_button.clicked.connect(self.split_requested.emit)
 
 class RightToolPane(QWidget):
+    close_requested = Signal()
+
     def __init__(self) -> None:
         super().__init__()
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.stack = QStackedWidget()
         self.viewer_pane = ViewerToolPane()
         self.editor_pane = EditorToolPane()
@@ -280,12 +331,170 @@ class RightToolPane(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
         layout.addWidget(self.stack)
+        self.viewer_pane.compact_close_requested.connect(self.close_requested.emit)
+        self._escape_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Escape), self)
+        self._escape_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self._escape_shortcut.activated.connect(self.close_requested.emit)
+        self.setFixedWidth(320)
+        self.setMaximumHeight(340)
+        self.setStyleSheet(
+            """
+            RightToolPane {
+                background-color: rgba(40, 40, 40, 191);
+                border: 1px solid #dbe2ea;
+                border-radius: 12px;
+            }
+            RightToolPane QLabel {
+                color: #f8fafc;
+                background: transparent;
+            }
+            RightToolPane #compactTitleLabel {
+                font-weight: 600;
+                color: #f8fafc;
+            }
+            RightToolPane #searchResultLabel {
+                color: #cbd5e1;
+            }
+            RightToolPane #searchHintLabel {
+                color: #94a3b8;
+            }
+            RightToolPane QLineEdit,
+            RightToolPane QListWidget,
+            RightToolPane QPushButton,
+            RightToolPane QToolButton,
+            RightToolPane QFrame,
+            RightToolPane QWidget {
+                background: transparent;
+            }
+            RightToolPane QLineEdit,
+            RightToolPane QListWidget {
+                color: #f8fafc;
+                border: 1px solid rgba(226, 232, 240, 0.35);
+                border-radius: 8px;
+                padding: 6px;
+                selection-background-color: rgba(96, 165, 250, 0.45);
+            }
+            RightToolPane QPushButton,
+            RightToolPane QToolButton {
+                color: #f8fafc;
+                border: 1px solid rgba(226, 232, 240, 0.25);
+                border-radius: 8px;
+                padding: 6px 8px;
+            }
+            RightToolPane QPushButton:hover,
+            RightToolPane QToolButton:hover {
+                background-color: rgba(255, 255, 255, 0.08);
+            }
+            RightToolPane[contextPanel="true"] {
+                background-color: #0f172a;
+                border: 1px solid #334155;
+                border-radius: 12px;
+            }
+            RightToolPane[contextPanel="true"] #viewerToolPane,
+            RightToolPane[contextPanel="true"] QStackedWidget,
+            RightToolPane[contextPanel="true"] QStackedWidget > QWidget {
+                background: transparent;
+            }
+            RightToolPane[contextPanel="true"] #searchPanel {
+                background-color: #111827;
+                border: 1px solid #1f2937;
+                border-radius: 10px;
+            }
+            RightToolPane[contextPanel="true"] #searchHeader {
+                background-color: #0b1220;
+                border: 1px solid #1e293b;
+                border-radius: 8px;
+            }
+            RightToolPane[contextPanel="true"] QLabel {
+                color: #e5edf7;
+            }
+            RightToolPane[contextPanel="true"] #compactTitleLabel {
+                color: #f8fafc;
+            }
+            RightToolPane[contextPanel="true"] #searchResultLabel {
+                color: #dbe7f5;
+            }
+            RightToolPane[contextPanel="true"] #searchHintLabel {
+                color: #9fb0c7;
+            }
+            RightToolPane[contextPanel="true"] QLineEdit {
+                background-color: #020617;
+                color: #f8fafc;
+                border: 1px solid #334155;
+                border-radius: 8px;
+                padding: 8px 10px;
+                selection-background-color: #2563eb;
+            }
+            RightToolPane[contextPanel="true"] #searchResultsList {
+                background-color: #0b1220;
+                color: #e5edf7;
+                border: 1px solid #334155;
+                border-radius: 8px;
+                padding: 6px;
+                outline: none;
+                selection-background-color: transparent;
+            }
+            RightToolPane[contextPanel="true"] #searchResultsList::item {
+                background-color: #162033;
+                color: #f8fafc;
+                border: 1px solid #223049;
+                border-radius: 8px;
+                margin: 0 0 6px 0;
+                padding: 10px 12px;
+            }
+            RightToolPane[contextPanel="true"] #searchResultsList::item:hover {
+                background-color: #1d2b44;
+                border-color: #334155;
+            }
+            RightToolPane[contextPanel="true"] #searchResultsList::item:selected {
+                background-color: #1e3a5f;
+                border-color: #60a5fa;
+                color: #f8fafc;
+            }
+            RightToolPane[contextPanel="true"] QPushButton,
+            RightToolPane[contextPanel="true"] QToolButton {
+                background-color: #162033;
+                color: #f8fafc;
+                border: 1px solid #334155;
+                border-radius: 8px;
+                padding: 6px 8px;
+            }
+            RightToolPane[contextPanel="true"] QPushButton:hover,
+            RightToolPane[contextPanel="true"] QToolButton:hover {
+                background-color: #1d2b44;
+            }
+            """
+        )
+        self._set_context_panel_active(False)
+        self.hide()
 
     def show_placeholder(self) -> None:
         self.stack.setCurrentWidget(self.placeholder)
 
     def show_viewer(self) -> None:
+        self._set_context_panel_active(False)
+        self.viewer_pane.set_compact_search_mode(False)
         self.stack.setCurrentWidget(self.viewer_pane)
 
     def show_editor(self) -> None:
+        self._set_context_panel_active(False)
         self.stack.setCurrentWidget(self.editor_pane)
+
+    def show_search_context(self) -> None:
+        self._set_context_panel_active(True)
+        self.stack.setCurrentWidget(self.viewer_pane)
+        self.viewer_pane.set_compact_search_mode(True)
+        self.show()
+        self.raise_()
+
+    def hide_context_panel(self) -> None:
+        self._set_context_panel_active(False)
+        self.viewer_pane.set_compact_search_mode(False)
+        self.hide()
+
+    def _set_context_panel_active(self, active: bool) -> None:
+        self.setProperty("contextPanel", active)
+        style = self.style()
+        style.unpolish(self)
+        style.polish(self)
+        self.update()

@@ -31,13 +31,19 @@ class SearchService(QObject):
     def next_result(self) -> None:
         if not self.results:
             return
-        self.active_index = (self.active_index + 1) % len(self.results)
+        if self.active_index < 0:
+            self.active_index = 0
+        else:
+            self.active_index = (self.active_index + 1) % len(self.results)
         self._emit_active()
 
     def previous_result(self) -> None:
         if not self.results:
             return
-        self.active_index = (self.active_index - 1) % len(self.results)
+        if self.active_index < 0:
+            self.active_index = len(self.results) - 1
+        else:
+            self.active_index = (self.active_index - 1) % len(self.results)
         self._emit_active()
 
     def activate_index(self, index: int) -> None:
@@ -45,12 +51,28 @@ class SearchService(QObject):
             self.active_index = index
             self._emit_active()
 
-    def sync_to_page(self, page_index: int) -> None:
-        for idx, result in enumerate(self.results):
-            if result.page_index == page_index:
-                self.active_index = idx
-                self._emit_active()
-                break
+    def sync_to_page(self, page_index: int) -> bool:
+        if not self.results:
+            return False
+
+        if 0 <= self.active_index < len(self.results):
+            active_result = self.results[self.active_index]
+            if active_result.page_index == page_index:
+                return False
+
+        matching_indexes = [
+            idx for idx, result in enumerate(self.results) if result.page_index == page_index
+        ]
+        if not matching_indexes:
+            return False
+
+        start_index = max(self.active_index, 0)
+        synced_index = next((idx for idx in matching_indexes if idx >= start_index), matching_indexes[0])
+        if synced_index == self.active_index:
+            return False
+
+        self.active_index = synced_index
+        return True
 
     def clear(self) -> None:
         self.query = ""
@@ -58,7 +80,13 @@ class SearchService(QObject):
         self.active_index = -1
         self.results_updated.emit([])
 
-    def _emit_active(self) -> None:
+    def active_result_state(self) -> tuple[SearchResult, int, int] | None:
         if 0 <= self.active_index < len(self.results):
-            result = self.results[self.active_index]
-            self.active_result_changed.emit(result, self.active_index + 1, len(self.results))
+            return self.results[self.active_index], self.active_index + 1, len(self.results)
+        return None
+
+    def _emit_active(self) -> None:
+        active_state = self.active_result_state()
+        if active_state is not None:
+            result, index, total = active_state
+            self.active_result_changed.emit(result, index, total)

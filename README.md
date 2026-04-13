@@ -1,55 +1,65 @@
 # PDF App MVP
 
-Early preview for a macOS mini launch.
+Desktop PDF viewer and structural editor MVP built with Python, PySide6, PyMuPDF, and pypdf.
 
-A desktop PDF viewer and structural editor MVP built with Python, PySide6, PyMuPDF, and pypdf.
+This repository is the frozen desktop baseline that will be used as the behavioral reference for the upcoming web version.
 
-This repository is the current frozen MVP baseline and the source for the current macOS `PDF App MVP.app` preview target.
+## MVP status
 
-## MVP scope
+- Status: desktop MVP frozen
+- Baseline intent: stable, reviewable reference for future web planning and implementation
+- Scope: document the current desktop product honestly without adding new feature claims
 
-The current MVP focuses on:
-- local PDF viewing and navigation
-- shared Viewer and Editor modes in one main window
-- text search
-- structural page editing
-- safe local export with a Save As first workflow
+## Frozen feature set
 
-The MVP intentionally stops before a full annotation suite, although the repository now includes a mini-launch-ready highlight/underline annotation subset built on the internal annotation foundation.
+- Open local PDFs, including password-protected PDFs after password prompt
+- Home screen with recent files and drag-and-drop open
+- Viewer mode with:
+  - continuous page scroll
+  - thumbnail sidebar
+  - page jump and current-page tracking
+  - zoom controls and full screen
+  - text search with result list and next/previous navigation
+  - highlight and underline annotations
+- Editor mode with:
+  - page organization grid
+  - multi-selection
+  - drag-and-drop reorder
+  - rotate selected pages
+  - rotate all pages
+  - extract selected pages
+  - split by page range
+  - delete selected pages
+- Merge PDFs workflow
+- Save As / working-copy flow with dirty tracking and unsaved-change prompts
+- Undo / Redo for structural edits and visible annotation actions
+- Keyboard shortcuts for the current core Viewer and Editor workflows
+- In-app shortcut guide
 
-## Early Preview Scope
+## Deferred / intentionally excluded
 
-Current launch-facing scope:
-- stable PDF viewing and structural editing
-- password-protected PDF open
-- persisted recent files
-- mini-launch annotation preview with `Highlight` and `Underline` only
-- top-level Undo/Redo shared across structural edits and visible annotation actions
-
-Deferred from the visible preview scope:
-- text box annotation UI
+- Web version implementation
 - PDF annotation write-back/export
-- advanced annotation editing
+- Rich annotation editing beyond the current highlight/underline MVP
+- Advanced in-page search highlighting
+- Production packaging/distribution polish such as codesigning, notarization, and installer work
 
-## Implemented features
+## Current known limitations
 
-- Home screen with `Open PDF`, `Merge PDFs`, drag-and-drop open, and a persisted recent-files list
-- Shared main window with `Viewer` and `Editor` modes
-- Viewer mode with continuous scroll, zoom, full screen, page jump, page tracking, and left thumbnail navigation
-- Shared text search used by both the top toolbar search field and the Viewer Tool Pane, including collapsible search controls and clearer result-position feedback
-- Editor page-organization grid with multi-selection and drag-and-drop reorder
-- Structural operations: reorder, delete, rotate selected, rotate all, extract selected pages, split by range, and merge PDFs
-- Password-protected PDF open support with password prompt, plus protected-PDF import support for merge workflow
-- Keyboard shortcuts for common workflows such as open, save as, find, search next/previous, page navigation, zoom, full screen, unified undo/redo, and core editor selection/delete actions
-- Help menu entry for a simple in-app keyboard shortcut guide
-- Mini-launch annotation tools in Viewer mode: drag-to-place highlight and underline with selection, delete, top-level undo/redo, and reset support
-- Save As first export flow with working-copy editing, dirty tracking, unsaved-changes prompts, and write-error handling
-- Undo/redo foundation for structural edits: reorder, rotate, and delete
+- Search navigates correctly but does not visually highlight the exact in-page match region
+- Highlight and underline are session-visible only and are not embedded into exported PDFs by `Save As`
+- Annotation editing remains intentionally lightweight
+- Desktop packaging exists for preview/manual testing, not polished release distribution
+- Verification is still primarily compile/test/manual smoke-check based, not a full release automation pipeline
 
-## Deferred / post-MVP features
+## Recommended next phase
 
-- Advanced annotation editing and PDF annotation write-back/export integration
-- More advanced in-page search highlighting and search-panel polish
+The next major phase is web-version planning and implementation.
+
+The desktop app should now be treated as the reference behavior baseline:
+- feature scope should be compared against this desktop MVP
+- workflow differences in the web version should be intentional and documented
+- desktop documentation should remain the source of truth until web planning replaces it with a broader product plan
 
 ## Setup
 
@@ -66,39 +76,24 @@ source .venv/bin/activate
 python -m pdf_app.app.main
 ```
 
-## Package For macOS Preview
+## Packaging
 
-This repository includes a macOS-first local packaging path using PyInstaller for the preview `.app`.
-
-1. Install the packaging dependency set:
+For local macOS preview packaging only:
 
 ```bash
 source .venv/bin/activate
 pip install -r requirements-packaging.txt
-```
-
-2. Build the app bundle:
-
-```bash
 bash scripts/build_macos_app.sh
-```
-
-3. Launch the packaged app for manual testing:
-
-```bash
 open "dist/PDF App MVP.app"
 ```
 
-4. Run the smoke checklist before sharing the build:
+The packaging path is for preview/manual testing and is not yet a production release pipeline.
 
-```bash
-cat MINI_LAUNCH_SMOKE_CHECKLIST.md
-```
+## Smoke checklist
 
-The generated bundle is intended for early-user preview and local distribution testing. It is not yet codesigned, notarized, or wrapped in an installer.
-On first launch, macOS may warn that the app is from an unidentified developer. For preview testing, use Finder to right-click `PDF App MVP.app` and choose `Open` once, then confirm the prompt.
+Use [MINI_LAUNCH_SMOKE_CHECKLIST.md](/Users/keheliyak/Documents/New%20project/MINI_LAUNCH_SMOKE_CHECKLIST.md) before sharing a desktop build or treating a change as baseline-safe.
 
-## Test
+## Verification commands
 
 ```bash
 source .venv/bin/activate
@@ -106,38 +101,40 @@ pytest
 python3 -m compileall pdf_app tests
 ```
 
-## Current known limitations
+## Web W2 local development
 
-- Search navigation jumps to the correct page/result, but does not visually mark the exact in-page match
-- Search panel collapse/expand control icon polish is intentionally deferred
-- Undo/redo is snapshot-based for the current structural edit set and is not command-granular
-- The macOS packaging path is intended for local testing and is not yet signed or notarized
-- Annotations are currently session-visible only and are not embedded into PDFs by `Save As` yet
+Backend:
 
-## Project structure overview
-
-```text
-pdf_app/
-  app/            Application entry point
-  pdf_ops/        PDF structural operations
-  pdf_render/     Page and thumbnail rendering
-  search/         Search models and engine
-  services/       Document, export, history, and search services
-  state/          Basic application and document state
-  ui/             Main window, home screen, viewer/editor UIs, dialogs
-tests/            Minimal PDF operation tests
+```bash
+source .venv/bin/activate
+pip install -r api/requirements.txt
+uvicorn api.app.main:app --reload --port 8000
 ```
 
-## Notes
+Frontend:
 
-- The app edits a temporary working copy and does not modify the original PDF in place.
-- Password-protected PDFs are unlocked into the temporary working copy after the password is accepted, so Save As exports the currently unlocked working copy.
-- Recent files are persisted locally across restarts, and stale entries are removed if a file is missing or no longer accessible.
-- A simple keyboard shortcut reference is available from `Help > Keyboard Shortcuts`.
-- Highlight and underline now use a drag selection interaction in Viewer mode, with `H`, `U`, and `Esc` shortcuts for quick tool control.
-- Highlight and underline can be selected in Viewer mode and removed with the Viewer pane or `Delete`, and the visible annotation set supports document-level reset.
-- Top-level `Undo` / `Redo` from the toolbar, Edit menu, and standard shortcuts now cover both structural edits and the visible highlight/underline annotation workflow.
-- Text box support remains internal and is intentionally not part of the current visible mini-launch toolset.
-- Annotations are session-visible only for now and are not embedded into exported PDFs by `Save As`.
-- PDF annotation write-back/export integration is not implemented yet.
-- This repository should be treated as the frozen MVP baseline for the next phase of work.
+```bash
+cd web
+cp .env.local.example .env.local
+npm install
+npm run dev
+```
+
+Expected local ports:
+- frontend: `http://localhost:3000`
+- backend: `http://localhost:8000`
+
+Current web W2 flow:
+- upload PDF
+- render/view PDF in browser
+- zoom in/out/reset
+- download the current PDF back from the backend
+
+## Project docs
+
+- [PROJECT_STATUS.md](/Users/keheliyak/Documents/New%20project/PROJECT_STATUS.md): current freeze status and next phase
+- [KNOWN_ISSUES.md](/Users/keheliyak/Documents/New%20project/KNOWN_ISSUES.md): honest non-blocking limitations and deferred work
+- [IMPLEMENTATION_LOG.md](/Users/keheliyak/Documents/New%20project/IMPLEMENTATION_LOG.md): implementation and freeze history
+- [MINI_LAUNCH_SMOKE_CHECKLIST.md](/Users/keheliyak/Documents/New%20project/MINI_LAUNCH_SMOKE_CHECKLIST.md): release-readiness/manual smoke checklist
+- [WEB_PRD.md](/Users/keheliyak/Documents/New%20project/WEB_PRD.md): web product definition for the next phase
+- [WEB_ROADMAP.md](/Users/keheliyak/Documents/New%20project/WEB_ROADMAP.md): web feature prioritization, architecture, and W2 scope

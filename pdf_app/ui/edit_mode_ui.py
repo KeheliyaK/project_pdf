@@ -5,6 +5,7 @@ from pathlib import Path
 from PySide6.QtCore import QEvent, QRect, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QDropEvent, QFont, QIcon, QPainter, QPen
 from PySide6.QtWidgets import (
+    QApplication,
     QHBoxLayout,
     QLabel,
     QListView,
@@ -25,6 +26,17 @@ EDITOR_GRID_SIZE = QSize(148, 216)
 
 
 class EditorPageItemDelegate(QStyledItemDelegate):
+    checkbox_clicked = Signal(int, object)
+
+    @staticmethod
+    def _is_checked(index) -> bool:
+        state = index.data(Qt.ItemDataRole.CheckStateRole)
+        if isinstance(state, Qt.CheckState):
+            return state == Qt.CheckState.Checked
+        if isinstance(state, int):
+            return state == Qt.CheckState.Checked.value
+        return False
+
     def paint(self, painter: QPainter, option, index) -> None:  # type: ignore[override]
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
@@ -74,7 +86,7 @@ class EditorPageItemDelegate(QStyledItemDelegate):
             16,
             16,
         )
-        is_checked = index.data(Qt.ItemDataRole.CheckStateRole) == Qt.CheckState.Checked
+        is_checked = self._is_checked(index)
         checkbox_border = QColor("#64748b")
         checkbox_fill = QColor("#ffffff")
         if is_checked:
@@ -84,7 +96,10 @@ class EditorPageItemDelegate(QStyledItemDelegate):
         painter.setBrush(checkbox_fill)
         painter.drawRoundedRect(checkbox_rect, 3, 3)
         if is_checked:
-            painter.setPen(QPen(QColor("#ffffff"), 2.4, cap=Qt.PenCapStyle.RoundCap, join=Qt.PenJoinStyle.RoundJoin))
+            check_pen = QPen(QColor("#ffffff"), 2.4)
+            check_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            check_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+            painter.setPen(check_pen)
             painter.drawLine(
                 checkbox_rect.left() + 3,
                 checkbox_rect.center().y(),
@@ -115,13 +130,17 @@ class EditorPageItemDelegate(QStyledItemDelegate):
         painter.restore()
 
     def editorEvent(self, event, model, option, index) -> bool:  # type: ignore[override]
+        if event.type() in {QEvent.Type.MouseButtonPress, QEvent.Type.MouseButtonDblClick}:
+            point = event.position().toPoint() if hasattr(event, "position") else event.pos()
+            checkbox_rect = self._checkbox_rect(option.rect)
+            if checkbox_rect.contains(point):
+                return True
         if event.type() == QEvent.Type.MouseButtonRelease:
             point = event.position().toPoint() if hasattr(event, "position") else event.pos()
             checkbox_rect = self._checkbox_rect(option.rect)
             if checkbox_rect.contains(point):
-                current = index.data(Qt.ItemDataRole.CheckStateRole)
-                next_state = Qt.CheckState.Unchecked if current == Qt.CheckState.Checked else Qt.CheckState.Checked
-                return bool(model.setData(index, next_state, Qt.ItemDataRole.CheckStateRole))
+                self.checkbox_clicked.emit(index.row(), event.modifiers())
+                return True
         return super().editorEvent(event, model, option, index)
 
     def _checkbox_rect(self, rect: QRect) -> QRect:
@@ -241,9 +260,11 @@ class EditorWorkspace(QWidget):
         self.render_service = render_service
         self._selected_pages: set[int] = set()
         self._syncing_selection = False
+        self._selection_anchor_row: int | None = None
         self.mini_toolbar = EditorMiniToolbar()
         self.grid = PageGridWidget()
-        self.grid.setItemDelegate(EditorPageItemDelegate(self.grid))
+        self.page_delegate = EditorPageItemDelegate(self.grid)
+        self.grid.setItemDelegate(self.page_delegate)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -252,13 +273,14 @@ class EditorWorkspace(QWidget):
 
         self.grid.order_changed.connect(self.order_changed.emit)
         self.grid.itemSelectionChanged.connect(self._selection_changed_from_highlight)
-        self.grid.itemChanged.connect(self._selection_changed_from_checkbox)
+        self.page_delegate.checkbox_clicked.connect(self._selection_changed_from_checkbox_click)
         self.mini_toolbar.undo_requested.connect(self.undo_requested.emit)
         self.mini_toolbar.redo_requested.connect(self.redo_requested.emit)
 
     def load_document(self, pdf_path: Path, page_count: int) -> None:
         self.grid.clear()
         self._selected_pages.clear()
+        self._selection_anchor_row = None
         self.grid.setIconSize(EDITOR_ICON_SIZE)
         for page_index in range(page_count):
             item = QListWidgetItem(str(page_index + 1))
@@ -284,19 +306,37 @@ class EditorWorkspace(QWidget):
             self.grid.item(row).data(Qt.ItemDataRole.UserRole)
             for row in range(self.grid.count())
         }
+        if self.grid.count():
+            self._selection_anchor_row = 0
         self._apply_shared_selection()
 
     def set_history_state(self, can_undo: bool, can_redo: bool) -> None:
         self.mini_toolbar.update_history_state(can_undo, can_redo)
 
-    def _selection_changed_from_checkbox(self, item: QListWidgetItem) -> None:
-        if self._syncing_selection:
+    def _selection_changed_from_checkbox_click(self, row: int, modifiers) -> None:
+        if row < 0 or row >= self.grid.count():
             return
-        page_index = item.data(Qt.ItemDataRole.UserRole)
-        if item.checkState() == Qt.CheckState.Checked:
-            self._selected_pages.add(page_index)
+
+        extend_range = bool(modifiers & Qt.KeyboardModifier.ShiftModifier)
+        page_index = self.grid.item(row).data(Qt.ItemDataRole.UserRole)
+        selected_pages = set(self._selected_pages)
+
+        if extend_range and self._selection_anchor_row is not None:
+            start, end = sorted((self._selection_anchor_row, row))
+            range_pages = {
+                self.grid.item(range_row).data(Qt.ItemDataRole.UserRole)
+                for range_row in range(start, end + 1)
+            }
+            selected_pages |= range_pages
+            self._selection_anchor_row = row
         else:
-            self._selected_pages.discard(page_index)
+            if page_index in selected_pages:
+                selected_pages.remove(page_index)
+            else:
+                selected_pages.add(page_index)
+            self._selection_anchor_row = row
+
+        self._selected_pages = selected_pages
         self._apply_shared_selection()
 
     def _selection_changed_from_highlight(self) -> None:
@@ -305,11 +345,11 @@ class EditorWorkspace(QWidget):
         self._selected_pages = {
             item.data(Qt.ItemDataRole.UserRole)
             for item in self.grid.selectedItems()
-        } | {
-            self.grid.item(row).data(Qt.ItemDataRole.UserRole)
-            for row in range(self.grid.count())
-            if self.grid.item(row).checkState() == Qt.CheckState.Checked
         }
+        if not (QApplication.keyboardModifiers() & Qt.KeyboardModifier.ShiftModifier):
+            current_row = self.grid.currentRow()
+            if current_row >= 0:
+                self._selection_anchor_row = current_row
         self._apply_shared_selection()
 
     def _apply_shared_selection(self) -> None:
@@ -323,3 +363,4 @@ class EditorWorkspace(QWidget):
         selected_pages = sorted(self._selected_pages)
         self.mini_toolbar.update_selection_count(len(selected_pages))
         self.selection_changed_pages.emit(selected_pages)
+        self.grid.viewport().update()

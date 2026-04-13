@@ -4,8 +4,9 @@ from pathlib import Path
 
 import pytest
 from pypdf import PdfReader, PdfWriter
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QPixmap
+from PySide6.QtCore import QItemSelectionModel, QRect, Qt
+from PySide6.QtGui import QColor, QImage, QPainter, QPixmap
+from PySide6.QtWidgets import QApplication, QStyle, QStyleOptionViewItem
 
 from pdf_app.annotations.models import AnnotationRect, AnnotationStyle, AnnotationType
 from pdf_app.pdf_ops.pdf_operation_service import PdfOperationService
@@ -53,6 +54,54 @@ def _make_encrypted_pdf(path: Path, pages: int, password: str) -> None:
     writer.encrypt(password)
     with path.open("wb") as handle:
         writer.write(handle)
+
+
+def _build_editor_workspace(tmp_path: Path) -> EditorWorkspace:
+    workspace = EditorWorkspace(_StubRenderService())
+    workspace.load_document(tmp_path / "source.pdf", 5)
+    QApplication.processEvents()
+    return workspace
+
+
+def _plain_click_editor_card(
+    workspace: EditorWorkspace,
+    row: int,
+) -> None:
+    item = workspace.grid.item(row)
+    workspace.grid.clearSelection()
+    workspace.grid.setCurrentItem(item)
+    item.setSelected(True)
+    QApplication.processEvents()
+
+
+def _checkbox_click(
+    workspace: EditorWorkspace,
+    row: int,
+    modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier,
+) -> None:
+    workspace._selection_changed_from_checkbox_click(row, modifiers)
+    QApplication.processEvents()
+
+
+def _additive_click_editor_card(workspace: EditorWorkspace, row: int) -> None:
+    item = workspace.grid.item(row)
+    index = workspace.grid.indexFromItem(item)
+    command = QItemSelectionModel.SelectionFlag.Toggle | QItemSelectionModel.SelectionFlag.Rows
+    workspace.grid.selectionModel().select(index, command)
+    QApplication.processEvents()
+
+
+def _render_editor_item_checkbox(workspace: EditorWorkspace, row: int) -> tuple[QImage, QRect]:
+    index = workspace.grid.model().index(row, 0)
+    option = QStyleOptionViewItem()
+    option.rect = QRect(0, 0, workspace.grid.item(row).sizeHint().width(), workspace.grid.item(row).sizeHint().height())
+    option.state |= QStyle.StateFlag.State_Selected
+    image = QImage(option.rect.size(), QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(QColor("white"))
+    painter = QPainter(image)
+    workspace.page_delegate.paint(painter, option, index)
+    painter.end()
+    return image, workspace.page_delegate._checkbox_rect(option.rect)
 
 
 def test_delete_pages(tmp_path: Path) -> None:
@@ -385,28 +434,42 @@ def test_unified_history_service_clears_redo_on_new_action() -> None:
     assert service.can_redo() is False
 
 
-def test_editor_checkbox_select_updates_shared_selection_state(tmp_path: Path) -> None:
-    workspace = EditorWorkspace(_StubRenderService())
-    workspace.load_document(tmp_path / "source.pdf", 5)
+def test_editor_plain_click_replaces_previous_selection(tmp_path: Path) -> None:
+    workspace = _build_editor_workspace(tmp_path)
+
+    _plain_click_editor_card(workspace, 0)
+    _plain_click_editor_card(workspace, 2)
 
     first = workspace.grid.item(0)
-    first.setCheckState(Qt.CheckState.Checked)
+    third = workspace.grid.item(2)
+    assert workspace.selected_pages() == [2]
+    assert first.isSelected() is False
+    assert first.checkState() == Qt.CheckState.Unchecked
+    assert third.isSelected() is True
+    assert third.checkState() == Qt.CheckState.Checked
+    assert workspace.mini_toolbar.selection_label.text() == "1 pages selected"
 
+
+def test_editor_checkbox_click_selects_and_shows_checked_state(tmp_path: Path) -> None:
+    workspace = _build_editor_workspace(tmp_path)
+
+    _checkbox_click(workspace, 0)
+
+    first = workspace.grid.item(0)
     assert workspace.selected_pages() == [0]
     assert first.checkState() == Qt.CheckState.Checked
     assert first.isSelected() is True
     assert workspace.mini_toolbar.selection_label.text() == "1 pages selected"
 
 
-def test_editor_checkbox_multi_select_preserves_prior_selection(tmp_path: Path) -> None:
-    workspace = EditorWorkspace(_StubRenderService())
-    workspace.load_document(tmp_path / "source.pdf", 5)
+def test_editor_checkbox_multi_select_preserves_prior_selection_without_modifier(tmp_path: Path) -> None:
+    workspace = _build_editor_workspace(tmp_path)
+
+    _checkbox_click(workspace, 0)
+    _checkbox_click(workspace, 2)
 
     first = workspace.grid.item(0)
     third = workspace.grid.item(2)
-    first.setCheckState(Qt.CheckState.Checked)
-    third.setCheckState(Qt.CheckState.Checked)
-
     assert workspace.selected_pages() == [0, 2]
     assert first.checkState() == Qt.CheckState.Checked
     assert third.checkState() == Qt.CheckState.Checked
@@ -415,16 +478,15 @@ def test_editor_checkbox_multi_select_preserves_prior_selection(tmp_path: Path) 
     assert workspace.mini_toolbar.selection_label.text() == "2 pages selected"
 
 
-def test_editor_checkbox_deselect_removes_only_target_page(tmp_path: Path) -> None:
-    workspace = EditorWorkspace(_StubRenderService())
-    workspace.load_document(tmp_path / "source.pdf", 5)
+def test_editor_checkbox_uncheck_removes_only_target_page(tmp_path: Path) -> None:
+    workspace = _build_editor_workspace(tmp_path)
+
+    _checkbox_click(workspace, 0)
+    _checkbox_click(workspace, 2)
+    _checkbox_click(workspace, 0)
 
     first = workspace.grid.item(0)
     third = workspace.grid.item(2)
-    first.setCheckState(Qt.CheckState.Checked)
-    third.setCheckState(Qt.CheckState.Checked)
-    first.setCheckState(Qt.CheckState.Unchecked)
-
     assert workspace.selected_pages() == [2]
     assert first.checkState() == Qt.CheckState.Unchecked
     assert first.isSelected() is False
@@ -433,17 +495,43 @@ def test_editor_checkbox_deselect_removes_only_target_page(tmp_path: Path) -> No
     assert workspace.mini_toolbar.selection_label.text() == "1 pages selected"
 
 
-def test_editor_mixed_checkbox_and_highlight_selection_stays_synchronized(tmp_path: Path) -> None:
-    workspace = EditorWorkspace(_StubRenderService())
-    workspace.load_document(tmp_path / "source.pdf", 5)
+def test_editor_cmd_click_toggles_additive_selection(tmp_path: Path) -> None:
+    workspace = _build_editor_workspace(tmp_path)
+
+    _plain_click_editor_card(workspace, 0)
+    _additive_click_editor_card(workspace, 2)
+    _additive_click_editor_card(workspace, 0)
+
+    first = workspace.grid.item(0)
+    third = workspace.grid.item(2)
+    assert workspace.selected_pages() == [2]
+    assert first.checkState() == Qt.CheckState.Unchecked
+    assert third.checkState() == Qt.CheckState.Checked
+    assert workspace.mini_toolbar.selection_label.text() == "1 pages selected"
+
+
+def test_editor_shift_click_preserves_range_selection(tmp_path: Path) -> None:
+    workspace = _build_editor_workspace(tmp_path)
+
+    _plain_click_editor_card(workspace, 0)
+    _checkbox_click(workspace, 3, modifiers=Qt.KeyboardModifier.ShiftModifier)
+
+    assert workspace.selected_pages() == [0, 1, 2, 3]
+    assert workspace.grid.item(1).checkState() == Qt.CheckState.Checked
+    assert workspace.grid.item(2).checkState() == Qt.CheckState.Checked
+    assert workspace.mini_toolbar.selection_label.text() == "4 pages selected"
+
+
+def test_editor_mixed_checkbox_and_card_click_selection_stays_synchronized(tmp_path: Path) -> None:
+    workspace = _build_editor_workspace(tmp_path)
+
+    _checkbox_click(workspace, 0)
+    _checkbox_click(workspace, 2)
+    _additive_click_editor_card(workspace, 3)
 
     first = workspace.grid.item(0)
     third = workspace.grid.item(2)
     fourth = workspace.grid.item(3)
-    first.setCheckState(Qt.CheckState.Checked)
-    third.setCheckState(Qt.CheckState.Checked)
-    fourth.setSelected(True)
-
     assert workspace.selected_pages() == [0, 2, 3]
     assert first.checkState() == Qt.CheckState.Checked
     assert third.checkState() == Qt.CheckState.Checked
@@ -451,11 +539,30 @@ def test_editor_mixed_checkbox_and_highlight_selection_stays_synchronized(tmp_pa
     assert workspace.mini_toolbar.selection_label.text() == "3 pages selected"
 
 
-def test_editor_selected_page_operations_target_checkbox_selected_pages(tmp_path: Path) -> None:
-    workspace = EditorWorkspace(_StubRenderService())
-    workspace.load_document(tmp_path / "source.pdf", 5)
+def test_editor_selected_page_operations_target_current_checkbox_selection(tmp_path: Path) -> None:
+    workspace = _build_editor_workspace(tmp_path)
 
-    workspace.grid.item(0).setCheckState(Qt.CheckState.Checked)
-    workspace.grid.item(2).setCheckState(Qt.CheckState.Checked)
+    _checkbox_click(workspace, 0)
+    _checkbox_click(workspace, 2)
 
     assert workspace.selected_pages() == [0, 2]
+
+
+def test_editor_delegate_renders_checked_checkbox_indicator_for_selected_page(tmp_path: Path) -> None:
+    workspace = _build_editor_workspace(tmp_path)
+
+    _checkbox_click(workspace, 0)
+    image, checkbox_rect = _render_editor_item_checkbox(workspace, 0)
+
+    teal_pixels = 0
+    white_pixels = 0
+    for y in range(checkbox_rect.top(), checkbox_rect.bottom() + 1):
+        for x in range(checkbox_rect.left(), checkbox_rect.right() + 1):
+            color = QColor(image.pixel(x, y)).name()
+            if color == "#0f766e":
+                teal_pixels += 1
+            elif color == "#ffffff":
+                white_pixels += 1
+
+    assert teal_pixels > 0
+    assert white_pixels > 0
