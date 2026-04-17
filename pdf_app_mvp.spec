@@ -5,7 +5,8 @@ from PyInstaller.config import CONF
 from PyInstaller.utils.hooks import collect_submodules
 
 project_root = Path(CONF["specpath"]).resolve()
-icon_path = project_root / "assets" / "pdf_app_mvp.icns"
+icon_path = project_root / "assets" / "myleaflet.icns"
+ui_icons_dir = project_root / "pdf_app" / "ui" / "icons"
 
 hiddenimports = collect_submodules("fitz") + collect_submodules("pypdf")
 
@@ -14,7 +15,9 @@ a = Analysis(
     ["pdf_app/app/main.py"],
     pathex=[str(project_root)],
     binaries=[],
-    datas=[],
+    datas=[
+        (str(ui_icons_dir), "pdf_app/ui/icons"),
+    ],
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
@@ -29,7 +32,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="PDF App MVP",
+    name="MyLeaflet",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -43,12 +46,12 @@ coll = COLLECT(
     a.datas,
     strip=False,
     upx=False,
-    name="PDF App MVP",
+    name="MyLeaflet",
 )
 
 app = BUNDLE(
     coll,
-    name="PDF App MVP.app",
-    icon=str(project_root / "assets" / "icon-windowed.icns"),
-    bundle_identifier="local.pdf-app-mvp",
+    name="MyLeaflet.app",
+    icon=str(project_root / "assets" / "myleaflet.icns"),
+    bundle_identifier="local.myleaflet",
 )

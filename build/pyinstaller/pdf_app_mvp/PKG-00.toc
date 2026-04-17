@@ -1,5 +1,5 @@
-('/Users/keheliyak/Documents/New project/build/pyinstaller/pdf_app_mvp/PDF App '
- 'MVP.pkg',
+('/Users/keheliyak/Documents/New '
+ 'project/build/pyinstaller/pdf_app_mvp/MyLeaflet.pkg',
  {'BINARY': True,
   'DATA': True,
   'EXECUTABLE': True,
@@ -44,13 +44,13 @@
    '/Users/keheliyak/Documents/New '
    'project/.venv/lib/python3.11/site-packages/PyInstaller/hooks/rthooks/pyi_rth_inspect.py',
    'PYSOURCE'),
-  ('pyi_rth_multiprocessing',
-   '/Users/keheliyak/Documents/New '
-   'project/.venv/lib/python3.11/site-packages/PyInstaller/hooks/rthooks/pyi_rth_multiprocessing.py',
-   'PYSOURCE'),
   ('pyi_rth_pkgutil',
    '/Users/keheliyak/Documents/New '
    'project/.venv/lib/python3.11/site-packages/PyInstaller/hooks/rthooks/pyi_rth_pkgutil.py',
+   'PYSOURCE'),
+  ('pyi_rth_multiprocessing',
+   '/Users/keheliyak/Documents/New '
+   'project/.venv/lib/python3.11/site-packages/PyInstaller/hooks/rthooks/pyi_rth_multiprocessing.py',
    'PYSOURCE'),
   ('pyi_rth_pyside6',
    '/Users/keheliyak/Documents/New '

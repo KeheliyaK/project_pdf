@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2ECC71;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1A8A4A;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#F0FFF4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#DCF5E7;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#1A8A4A" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+
+  <!-- App background -->
+  <rect x="0" y="0" width="512" height="512" rx="112" ry="112" fill="url(#bgGrad)"/>
+
+  <!-- Leaf body -->
+  <g filter="url(#shadow)">
+    <path d="
+      M 256 90
+      C 340 90, 430 150, 440 256
+      C 450 362, 380 430, 256 430
+      C 180 430, 100 370, 90 280
+      C 80 190, 172 90, 256 90
+      Z
+    " fill="url(#leafGrad)"/>
+  </g>
+
+  <!-- M lettermark — large, centred, low opacity, behind the veins -->
+  <!-- Left outer leg -->
+  <line x1="178" y1="370" x2="178" y2="155"
+    stroke="rgba(255,255,255,0.22)" stroke-width="22"
+    stroke-linecap="round"/>
+  <!-- Left diagonal -->
+  <line x1="178" y1="155" x2="256" y2="255"
+    stroke="rgba(255,255,255,0.22)" stroke-width="22"
+    stroke-linecap="round"/>
+  <!-- Right diagonal -->
+  <line x1="256" y1="255" x2="334" y2="155"
+    stroke="rgba(255,255,255,0.22)" stroke-width="22"
+    stroke-linecap="round"/>
+  <!-- Right outer leg -->
+  <line x1="334" y1="155" x2="334" y2="370"
+    stroke="rgba(255,255,255,0.22)" stroke-width="22"
+    stroke-linecap="round"/>
+
+  <!-- Veins on top — central stem -->
+  <line x1="256" y1="415" x2="256" y2="130"
+    stroke="rgba(255,255,255,0.55)" stroke-width="7"
+    stroke-linecap="round"/>
+
+  <!-- Left veins -->
+  <line x1="256" y1="225" x2="158" y2="192"
+    stroke="rgba(255,255,255,0.38)" stroke-width="4.5" stroke-linecap="round"/>
+  <line x1="256" y1="278" x2="146" y2="258"
+    stroke="rgba(255,255,255,0.38)" stroke-width="4.5" stroke-linecap="round"/>
+  <line x1="256" y1="330" x2="160" y2="318"
+    stroke="rgba(255,255,255,0.38)" stroke-width="4.5" stroke-linecap="round"/>
+
+  <!-- Right veins -->
+  <line x1="256" y1="225" x2="354" y2="192"
+    stroke="rgba(255,255,255,0.38)" stroke-width="4.5" stroke-linecap="round"/>
+  <line x1="256" y1="278" x2="366" y2="258"
+    stroke="rgba(255,255,255,0.38)" stroke-width="4.5" stroke-linecap="round"/>
+  <line x1="256" y1="330" x2="352" y2="318"
+    stroke="rgba(255,255,255,0.38)" stroke-width="4.5" stroke-linecap="round"/>
+
+  <!-- Gloss highlight -->
+  <ellipse cx="210" cy="185" rx="55" ry="35"
+    fill="rgba(255,255,255,0.13)"
+    transform="rotate(-30 210 185)"/>
+
+</svg>

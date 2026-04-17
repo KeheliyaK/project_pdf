@@ -1,11 +1,13 @@
-# PDF App MVP
+# MyLeaflet - Mini Launch v0.2
 
 Desktop PDF viewer and structural editor MVP built with Python, PySide6, PyMuPDF, and pypdf.
 
-This repository is the frozen desktop baseline that will be used as the behavioral reference for the upcoming web version.
+This repository contains the MyLeaflet desktop MVP mini launch release, version v0.2.
 
-## MVP status
+## Release status
 
+- Release: MyLeaflet - Mini Launch v0.2
+- Version: v0.2
 - Status: desktop MVP frozen
 - Baseline intent: stable, reviewable reference for future web planning and implementation
 - Scope: document the current desktop product honestly without adding new feature claims
@@ -84,7 +86,7 @@ For local macOS preview packaging only:
 source .venv/bin/activate
 pip install -r requirements-packaging.txt
 bash scripts/build_macos_app.sh
-open "dist/PDF App MVP.app"
+open "dist/MyLeaflet.app"
 ```
 
 The packaging path is for preview/manual testing and is not yet a production release pipeline.

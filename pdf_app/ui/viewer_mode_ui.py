@@ -88,12 +88,18 @@ class ViewerWorkspace(QWidget):
         self.render_service = render_service
         self.annotation_provider = lambda _page_index: []
         self.selected_annotation_provider = lambda _page_index: set()
+        self.setObjectName("viewerWorkspace")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.scroll_area = QScrollArea()
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.scroll_area.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
+        self.scroll_area.viewport().setObjectName("viewerViewport")
+        self.scroll_area.viewport().setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.container = QWidget()
+        self.container.setObjectName("viewerCanvasContainer")
+        self.container.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.container.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.pages_layout = QVBoxLayout(self.container)
         self.pages_layout.setContentsMargins(24, 24, 24, 24)
@@ -104,6 +110,19 @@ class ViewerWorkspace(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.scroll_area)
+        self.setStyleSheet(
+            """
+            ViewerWorkspace,
+            QScrollArea,
+            QWidget#viewerViewport,
+            QWidget#viewerCanvasContainer {
+                background: #2f343b;
+            }
+            QScrollArea {
+                border: none;
+            }
+            """
+        )
 
         self._refresh_timer = QTimer(self)
         self._refresh_timer.setSingleShot(True)

@@ -26,6 +26,7 @@ def _icon(name: str) -> QIcon:
 class AppToolRail(QWidget):
     tool_selected = Signal(str)
     tool_deselected = Signal()
+    fullscreen_requested = Signal()
     zoom_in_requested = Signal()
     zoom_out_requested = Signal()
     rotate_page_cw_requested = Signal()
@@ -42,6 +43,8 @@ class AppToolRail(QWidget):
     def __init__(self) -> None:
         super().__init__()
         self._active_tool_name: str | None = None
+        self.setObjectName("appToolRail")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(6, 8, 6, 8)
@@ -50,17 +53,17 @@ class AppToolRail(QWidget):
         self.search_button = self._build_top_button(
             tool_name=TOOL_SEARCH,
             tooltip="Search (\u2318F)",
-            icon=_icon("icons8-analyze-50.png"),
+            icon=_icon("search_icon.png"),
         )
         self.highlight_button = self._build_top_button(
             tool_name=TOOL_HIGHLIGHT,
             tooltip="Highlight (H)",
-            icon=_icon("icons8-marker-pen-50.png"),
+            icon=_icon("highlighter_icon.png"),
         )
         self.underline_button = self._build_top_button(
             tool_name=TOOL_UNDERLINE,
             tooltip="Underline (U)",
-            icon=_icon("icons8-underline-50.png"),
+            icon=_icon("underline_icon.png"),
         )
         self.top_buttons = {
             TOOL_SEARCH: self.search_button,
@@ -152,6 +155,13 @@ class AppToolRail(QWidget):
         layout.addWidget(self.delete_annotation_button, 0, Qt.AlignmentFlag.AlignHCenter)
         layout.addWidget(self.reset_annotations_button, 0, Qt.AlignmentFlag.AlignHCenter)
 
+        self.fullscreen_button = self._build_action_button(
+            tooltip="Toggle Full Screen (F11)",
+            icon=_icon("fullscreen_icon.png"),
+        )
+        self.fullscreen_button.clicked.connect(self.fullscreen_requested.emit)
+        layout.addWidget(self.fullscreen_button, 0, Qt.AlignmentFlag.AlignHCenter)
+
         self.utility_divider = self._build_divider()
         layout.addWidget(self.utility_divider)
 
@@ -172,22 +182,23 @@ class AppToolRail(QWidget):
         self.setFixedWidth(52)
         self.setStyleSheet(
             """
-            AppToolRail {
-                background: #f8fafc;
-                border-left: 1px solid #dbe2ea;
+            QWidget#appToolRail {
+                background-color: #3a3f46;
+                border-left: 1px solid #4a5058;
             }
-            AppToolRail QToolButton {
-                border: 1px solid transparent;
+            QWidget#appToolRail QToolButton {
+                border: 1px solid #444b54;
                 border-radius: 10px;
-                background: transparent;
+                background-color: transparent;
                 padding: 0px;
             }
-            AppToolRail QToolButton:hover {
-                background: #e8eef5;
+            QWidget#appToolRail QToolButton:hover {
+                background-color: #444b54;
+                border-color: #454c53;
             }
-            AppToolRail QToolButton:checked {
-                background: #dbeafe;
-                border-color: #93c5fd;
+            QWidget#appToolRail QToolButton:checked {
+                background-color: #444b54;
+                border-color: #7a8794;
             }
             """
         )
@@ -213,6 +224,7 @@ class AppToolRail(QWidget):
         self.cancel_tool_button.setVisible(shared_visible)
         self.delete_annotation_button.setVisible(shared_visible)
         self.reset_annotations_button.setVisible(shared_visible)
+        self.fullscreen_button.setVisible(shared_visible)
         self.zoom_in_button.setVisible(shared_visible)
         self.zoom_out_button.setVisible(shared_visible)
 
@@ -270,7 +282,7 @@ class AppToolRail(QWidget):
         label = QLabel(text)
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         label.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        label.setStyleSheet("color: #64748b; font-size: 9pt; padding-top: 2px; padding-bottom: 2px;")
+        label.setStyleSheet("color: #cfcfcf; font-size: 9pt; padding-top: 2px; padding-bottom: 2px;")
         return label
 
     @staticmethod
@@ -278,7 +290,7 @@ class AppToolRail(QWidget):
         divider = QFrame()
         divider.setFrameShape(QFrame.Shape.HLine)
         divider.setFrameShadow(QFrame.Shadow.Plain)
-        divider.setStyleSheet("color: #cbd5e1;")
+        divider.setStyleSheet("color: #3d4349;")
         return divider
 
     def _handle_top_button_clicked(self, tool_name: str, checked: bool) -> None:

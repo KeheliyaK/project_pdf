@@ -23,8 +23,10 @@ class HomeScreen(QWidget):
     def __init__(self) -> None:
         super().__init__()
         self.setAcceptDrops(True)
+        self.setObjectName("homeScreen")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 
-        self.title_label = QLabel("PDF App MVP")
+        self.title_label = QLabel("MyLeaflet")
         self.title_label.setObjectName("homeTitle")
         self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -33,7 +35,10 @@ class HomeScreen(QWidget):
         self.drop_label = QLabel("Drag and drop a PDF here")
         self.drop_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.drop_label.setObjectName("dropZone")
+        self.recent_label = QLabel("Recent Files")
+        self.recent_label.setObjectName("recentFilesLabel")
         self.recent_list = QListWidget()
+        self.recent_list.setObjectName("recentFilesList")
         self.recent_list.addItem("Recent files will appear here")
 
         layout = QVBoxLayout(self)
@@ -43,8 +48,59 @@ class HomeScreen(QWidget):
         layout.addWidget(self.open_button)
         layout.addWidget(self.merge_button)
         layout.addWidget(self.drop_label, 1)
-        layout.addWidget(QLabel("Recent Files"))
+        layout.addWidget(self.recent_label)
         layout.addWidget(self.recent_list)
+
+        self.setStyleSheet(
+            """
+            QWidget#homeScreen {
+                background-color: #3a3f46;
+            }
+            QLabel#homeTitle {
+                color: #f1f3f5;
+                font-size: 28px;
+                font-weight: 600;
+                padding-bottom: 8px;
+            }
+            QLabel#dropZone {
+                color: #d0d4d9;
+                background-color: #2f343b;
+                border: 1px dashed #5a616b;
+                border-radius: 12px;
+                padding: 28px;
+            }
+            QLabel#recentFilesLabel {
+                color: #f1f3f5;
+                font-weight: 600;
+            }
+            QPushButton {
+                color: #f1f3f5;
+                background-color: #4a5058;
+                border: 1px solid #5a616b;
+                border-radius: 8px;
+                padding: 10px 14px;
+            }
+            QPushButton:hover {
+                background-color: #5a616b;
+            }
+            QListWidget#recentFilesList {
+                color: #d0d4d9;
+                background-color: #2f343b;
+                border: 1px solid #4a5058;
+                border-radius: 10px;
+                padding: 8px;
+            }
+            QListWidget#recentFilesList::item {
+                color: #d0d4d9;
+                padding: 8px 10px;
+                border-radius: 6px;
+            }
+            QListWidget#recentFilesList::item:selected {
+                color: #f1f3f5;
+                background-color: #4a5058;
+            }
+            """
+        )
 
         self.open_button.clicked.connect(self.open_requested.emit)
         self.merge_button.clicked.connect(self.merge_requested.emit)

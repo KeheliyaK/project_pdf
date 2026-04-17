@@ -1,24 +1,38 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { DragEvent, MouseEvent, useEffect, useRef, useState } from "react";
 
 import type { PdfDocumentProxyLike } from "../lib/pdfjs";
 
 type ThumbnailRailProps = {
   pdfDocument: PdfDocumentProxyLike | null;
-  pageCount: number;
+  pageOrder: number[];
+  selectedPages: number[];
   currentPage: number;
   onSelectPage: (pageNumber: number) => void;
+  onToggleSelection: (pageNumber: number) => void;
+  onReorder: (sourcePage: number, targetPage: number) => void;
 };
 
 type ThumbnailItemProps = {
   pdfDocument: PdfDocumentProxyLike;
   pageNumber: number;
   isActive: boolean;
+  isSelected: boolean;
   onSelectPage: (pageNumber: number) => void;
+  onToggleSelection: (pageNumber: number) => void;
+  onReorder: (sourcePage: number, targetPage: number) => void;
 };
 
-function ThumbnailItem({ pdfDocument, pageNumber, isActive, onSelectPage }: ThumbnailItemProps) {
+function ThumbnailItem({
+  pdfDocument,
+  pageNumber,
+  isActive,
+  isSelected,
+  onSelectPage,
+  onToggleSelection,
+  onReorder,
+}: ThumbnailItemProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [error, setError] = useState<string>("");
 
@@ -90,26 +104,72 @@ function ThumbnailItem({ pdfDocument, pageNumber, isActive, onSelectPage }: Thum
     };
   }, [pdfDocument, pageNumber]);
 
+  function handleSelectClick(event: MouseEvent<HTMLButtonElement>) {
+    event.stopPropagation();
+    onToggleSelection(pageNumber);
+  }
+
+  function handleDragStart(event: DragEvent<HTMLDivElement>) {
+    event.dataTransfer.setData("text/plain", String(pageNumber));
+    event.dataTransfer.effectAllowed = "move";
+  }
+
+  function handleDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    const sourcePage = Number(event.dataTransfer.getData("text/plain"));
+    if (Number.isFinite(sourcePage) && sourcePage !== pageNumber) {
+      onReorder(sourcePage, pageNumber);
+    }
+  }
+
   return (
-    <button
-      type="button"
-      className={`thumbnail-button ${isActive ? "thumbnail-button--active" : ""}`}
+    <div
+      className={`thumbnail-button ${isActive ? "thumbnail-button--active" : ""} ${isSelected ? "thumbnail-button--selected" : ""}`}
+      draggable
+      onDragStart={handleDragStart}
+      onDragOver={(event) => event.preventDefault()}
+      onDrop={handleDrop}
       onClick={() => onSelectPage(pageNumber)}
-      aria-pressed={isActive}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelectPage(pageNumber);
+        }
+      }}
     >
       <div className="thumbnail-button__canvas">
         <canvas ref={canvasRef} className="thumbnail-canvas" />
       </div>
       <div className="thumbnail-button__footer">
         <span>Page {pageNumber}</span>
-        {error ? <span className="thumbnail-button__error">!</span> : null}
+        <div className="thumbnail-button__actions">
+          {error ? <span className="thumbnail-button__error">!</span> : null}
+          <button
+            type="button"
+            className={`thumbnail-select ${isSelected ? "thumbnail-select--active" : ""}`}
+            onClick={handleSelectClick}
+            aria-label={`${isSelected ? "Deselect" : "Select"} page ${pageNumber}`}
+          >
+            {isSelected ? "Selected" : "Select"}
+          </button>
+        </div>
       </div>
-    </button>
+    </div>
   );
 }
 
-export function ThumbnailRail({ pdfDocument, pageCount, currentPage, onSelectPage }: ThumbnailRailProps) {
-  if (!pdfDocument || pageCount <= 0) {
+export function ThumbnailRail({
+  pdfDocument,
+  pageOrder,
+  selectedPages,
+  currentPage,
+  onSelectPage,
+  onToggleSelection,
+  onReorder,
+}: ThumbnailRailProps) {
+  if (!pdfDocument || pageOrder.length === 0) {
     return (
       <div className="thumb-placeholder">
         <div className="thumb-card">Upload a PDF to generate page thumbnails.</div>
@@ -119,18 +179,18 @@ export function ThumbnailRail({ pdfDocument, pageCount, currentPage, onSelectPag
 
   return (
     <div className="thumbnail-list">
-      {Array.from({ length: pageCount }, (_, index) => {
-        const pageNumber = index + 1;
-        return (
-          <ThumbnailItem
-            key={pageNumber}
-            pdfDocument={pdfDocument}
-            pageNumber={pageNumber}
-            isActive={currentPage === pageNumber}
-            onSelectPage={onSelectPage}
-          />
-        );
-      })}
+      {pageOrder.map((pageNumber) => (
+        <ThumbnailItem
+          key={pageNumber}
+          pdfDocument={pdfDocument}
+          pageNumber={pageNumber}
+          isActive={currentPage === pageNumber}
+          isSelected={selectedPages.includes(pageNumber)}
+          onSelectPage={onSelectPage}
+          onToggleSelection={onToggleSelection}
+          onReorder={onReorder}
+        />
+      ))}
     </div>
   );
 }

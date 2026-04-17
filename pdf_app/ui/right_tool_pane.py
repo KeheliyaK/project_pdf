@@ -88,7 +88,6 @@ class ViewerToolPane(QWidget):
         self.results_list.setObjectName("searchResultsList")
         self.results_list.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.results_list.viewport().setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.results_list.setAlternatingRowColors(True)
         search_layout.addWidget(self.result_label)
         search_layout.addWidget(self.search_hint_label)
         search_layout.addWidget(self.results_list, 1)
@@ -98,7 +97,7 @@ class ViewerToolPane(QWidget):
         annotation_layout = QVBoxLayout(self.annotation_box)
         annotation_layout.addWidget(QLabel("Annotations"))
         self.annotation_status_label = QLabel("No annotation tool active")
-        self.annotation_status_label.setStyleSheet("color: #475569;")
+        self.annotation_status_label.setStyleSheet("color: #d0d4d9;")
         self.highlight_button = QPushButton("Highlight")
         self.underline_button = QPushButton("Underline")
         self.text_box_button = QPushButton("Text Box")
@@ -340,23 +339,23 @@ class RightToolPane(QWidget):
         self.setStyleSheet(
             """
             RightToolPane {
-                background-color: rgba(40, 40, 40, 191);
-                border: 1px solid #dbe2ea;
+                background-color: #3a3f46;
+                border: 1px solid #4a5058;
                 border-radius: 12px;
             }
             RightToolPane QLabel {
-                color: #f8fafc;
+                color: #f1f3f5;
                 background: transparent;
             }
             RightToolPane #compactTitleLabel {
                 font-weight: 600;
-                color: #f8fafc;
+                color: #f1f3f5;
             }
             RightToolPane #searchResultLabel {
-                color: #cbd5e1;
+                color: #d0d4d9;
             }
             RightToolPane #searchHintLabel {
-                color: #94a3b8;
+                color: #d0d4d9;
             }
             RightToolPane QLineEdit,
             RightToolPane QListWidget,
@@ -368,22 +367,24 @@ class RightToolPane(QWidget):
             }
             RightToolPane QLineEdit,
             RightToolPane QListWidget {
-                color: #f8fafc;
-                border: 1px solid rgba(226, 232, 240, 0.35);
+                color: #f1f3f5;
+                background-color: #2f343b;
+                border: 1px solid #4a5058;
                 border-radius: 8px;
                 padding: 6px;
-                selection-background-color: rgba(96, 165, 250, 0.45);
+                selection-background-color: #5a616b;
             }
             RightToolPane QPushButton,
             RightToolPane QToolButton {
-                color: #f8fafc;
-                border: 1px solid rgba(226, 232, 240, 0.25);
+                color: #f1f3f5;
+                border: 1px solid #5a616b;
                 border-radius: 8px;
+                background-color: #4a5058;
                 padding: 6px 8px;
             }
             RightToolPane QPushButton:hover,
             RightToolPane QToolButton:hover {
-                background-color: rgba(255, 255, 255, 0.08);
+                background-color: #5a616b;
             }
             RightToolPane[contextPanel="true"] {
                 background-color: #0f172a;
@@ -426,30 +427,24 @@ class RightToolPane(QWidget):
                 selection-background-color: #2563eb;
             }
             RightToolPane[contextPanel="true"] #searchResultsList {
-                background-color: #0b1220;
-                color: #e5edf7;
-                border: 1px solid #334155;
+                background-color: #3a3f46;
+                color: #f1f3f5;
+                border: 1px solid #4a5058;
                 border-radius: 8px;
                 padding: 6px;
                 outline: none;
-                selection-background-color: transparent;
+                show-decoration-selected: 1;
             }
             RightToolPane[contextPanel="true"] #searchResultsList::item {
-                background-color: #162033;
-                color: #f8fafc;
-                border: 1px solid #223049;
+                background-color: #444b52;
+                color: #f1f3f5;
                 border-radius: 8px;
                 margin: 0 0 6px 0;
-                padding: 10px 12px;
-            }
-            RightToolPane[contextPanel="true"] #searchResultsList::item:hover {
-                background-color: #1d2b44;
-                border-color: #334155;
+                padding: 6px;
             }
             RightToolPane[contextPanel="true"] #searchResultsList::item:selected {
-                background-color: #1e3a5f;
-                border-color: #60a5fa;
-                color: #f8fafc;
+                background-color: #5a616b;
+                color: #f1f3f5;
             }
             RightToolPane[contextPanel="true"] QPushButton,
             RightToolPane[contextPanel="true"] QToolButton {

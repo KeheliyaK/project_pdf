@@ -19,7 +19,6 @@ class MainToolbar(QWidget):
     redo_requested = Signal()
     zoom_in_requested = Signal()
     zoom_out_requested = Signal()
-    fullscreen_requested = Signal()
     search_requested = Signal(str)
 
     def __init__(self) -> None:
@@ -35,7 +34,6 @@ class MainToolbar(QWidget):
         self.editor_button.setCheckable(True)
         self.undo_button = QPushButton("Undo")
         self.redo_button = QPushButton("Redo")
-        self.fullscreen_button = QPushButton("Full Screen")
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Search in document")
 
@@ -48,7 +46,6 @@ class MainToolbar(QWidget):
         layout.addWidget(self.undo_button)
         layout.addWidget(self.redo_button)
         layout.addStretch(1)
-        layout.addWidget(self.fullscreen_button)
         layout.addWidget(self.search_input, 1)
 
         self.merge_button.clicked.connect(self.merge_requested.emit)
@@ -56,7 +53,6 @@ class MainToolbar(QWidget):
         self.editor_button.clicked.connect(self.editor_mode_requested.emit)
         self.undo_button.clicked.connect(self.undo_requested.emit)
         self.redo_button.clicked.connect(self.redo_requested.emit)
-        self.fullscreen_button.clicked.connect(self.fullscreen_requested.emit)
         self.search_input.returnPressed.connect(self._emit_search)
 
     def set_mode(self, mode: str) -> None:
@@ -69,7 +65,6 @@ class MainToolbar(QWidget):
             self.editor_button,
             self.undo_button,
             self.redo_button,
-            self.fullscreen_button,
             self.search_input,
         ):
             widget.setEnabled(enabled)

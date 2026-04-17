@@ -39,3 +39,12 @@ This freeze means:
 ## Next phase
 
 The next major phase is web-version planning and implementation, using this desktop MVP as the behavioral reference baseline.
+
+## v0.2 Mini Launch Preparation
+
+- Updated application branding to "MyLeaflet"
+- Updated application icon
+- Final UI refinements completed
+- Search panel readability improved
+- Fullscreen action moved to right rail
+- Desktop app prepared for packaging and release

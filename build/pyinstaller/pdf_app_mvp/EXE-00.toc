@@ -1,5 +1,5 @@
-('/Users/keheliyak/Documents/New project/build/pyinstaller/pdf_app_mvp/PDF App '
- 'MVP',
+('/Users/keheliyak/Documents/New '
+ 'project/build/pyinstaller/pdf_app_mvp/MyLeaflet',
  False,
  False,
  True,
@@ -13,8 +13,8 @@
  'arm64',
  None,
  None,
- '/Users/keheliyak/Documents/New project/build/pyinstaller/pdf_app_mvp/PDF App '
- 'MVP.pkg',
+ '/Users/keheliyak/Documents/New '
+ 'project/build/pyinstaller/pdf_app_mvp/MyLeaflet.pkg',
  [('pyi-contents-directory _internal', '', 'OPTION'),
   ('PYZ-00.pyz',
    '/Users/keheliyak/Documents/New '
@@ -50,13 +50,13 @@
    '/Users/keheliyak/Documents/New '
    'project/.venv/lib/python3.11/site-packages/PyInstaller/hooks/rthooks/pyi_rth_inspect.py',
    'PYSOURCE'),
-  ('pyi_rth_multiprocessing',
-   '/Users/keheliyak/Documents/New '
-   'project/.venv/lib/python3.11/site-packages/PyInstaller/hooks/rthooks/pyi_rth_multiprocessing.py',
-   'PYSOURCE'),
   ('pyi_rth_pkgutil',
    '/Users/keheliyak/Documents/New '
    'project/.venv/lib/python3.11/site-packages/PyInstaller/hooks/rthooks/pyi_rth_pkgutil.py',
+   'PYSOURCE'),
+  ('pyi_rth_multiprocessing',
+   '/Users/keheliyak/Documents/New '
+   'project/.venv/lib/python3.11/site-packages/PyInstaller/hooks/rthooks/pyi_rth_multiprocessing.py',
    'PYSOURCE'),
   ('pyi_rth_pyside6',
    '/Users/keheliyak/Documents/New '
@@ -68,7 +68,7 @@
  [],
  False,
  False,
- 1776036186,
+ 1776383414,
  [('runw',
    '/Users/keheliyak/Documents/New '
    'project/.venv/lib/python3.11/site-packages/PyInstaller/bootloader/Darwin-64bit/runw',

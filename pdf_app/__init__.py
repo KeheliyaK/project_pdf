@@ -1,3 +1,3 @@
-"""PDF App MVP package."""
+"""MyLeaflet package."""
 
-__version__ = "0.1.0"
+__version__ = "0.2"

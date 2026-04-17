@@ -53,7 +53,7 @@ from pdf_app.ui.viewer_mode_ui import ViewerWorkspace
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("PDF App MVP")
+        self.setWindowTitle("MyLeaflet - Mini Launch v0.2")
         self.resize(1480, 940)
         self.setAcceptDrops(True)
 
@@ -72,7 +72,7 @@ class MainWindow(QMainWindow):
         self.mode = AppMode.HOME
         self._banner_timer = QTimer(self)
         self._banner_timer.setSingleShot(True)
-        self._banner_timer.timeout.connect(lambda: self.banner_label.setText(""))
+        self._banner_timer.timeout.connect(self._clear_banner)
 
         self.toolbar_widget = MainToolbar()
         self.status_widget = AppStatusBar()
@@ -86,7 +86,8 @@ class MainWindow(QMainWindow):
         self.viewer_workspace.set_selected_annotation_provider(self._selected_annotations_for_page)
         self.editor_workspace = EditorWorkspace(self.render_service)
         self.banner_label = QLabel("")
-        self.banner_label.setStyleSheet("background:#d8e6f5; color:#243447; padding:8px;")
+        self.banner_label.setStyleSheet("background:#3a3f46; color:#f1f3f5; padding:8px;")
+        self.banner_label.hide()
 
         self._build_ui()
         self._build_menus()
@@ -122,11 +123,17 @@ class MainWindow(QMainWindow):
         )
 
         content_widget = QWidget()
+        content_widget.setObjectName("mainContentArea")
+        content_widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         content_layout = QHBoxLayout(content_widget)
         content_layout.setContentsMargins(0, 0, 0, 0)
         content_layout.setSpacing(0)
 
         splitter = QSplitter()
+        splitter.setObjectName("mainContentSplitter")
+        splitter.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.center_stack.setObjectName("mainCenterStack")
+        self.center_stack.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         splitter.addWidget(self.left_pane)
         splitter.addWidget(self.center_stack)
         splitter.setStretchFactor(0, 0)
@@ -139,6 +146,16 @@ class MainWindow(QMainWindow):
         self.center_stack.addWidget(self.home_screen)
         self.center_stack.addWidget(self.viewer_workspace)
         self.center_stack.addWidget(self.editor_workspace)
+
+        content_widget.setStyleSheet(
+            """
+            QWidget#mainContentArea,
+            QSplitter#mainContentSplitter,
+            QStackedWidget#mainCenterStack {
+                background-color: #3a3f46;
+            }
+            """
+        )
 
         shell_layout.addWidget(content_widget, 1)
         shell_layout.addWidget(self.status_widget)
@@ -249,7 +266,6 @@ class MainWindow(QMainWindow):
         self.toolbar_widget.editor_mode_requested.connect(self._switch_to_editor)
         self.toolbar_widget.undo_requested.connect(self.undo_last_action)
         self.toolbar_widget.redo_requested.connect(self.redo_last_action)
-        self.toolbar_widget.fullscreen_requested.connect(self._toggle_fullscreen)
         self.toolbar_widget.search_requested.connect(self.perform_search)
 
         self.open_action.triggered.connect(self.open_pdf_dialog)
@@ -295,6 +311,7 @@ class MainWindow(QMainWindow):
         self.right_pane.editor_pane.split_requested.connect(self.split_by_range)
         self.tool_rail.tool_selected.connect(self._on_rail_tool_selected)
         self.tool_rail.tool_deselected.connect(self._on_rail_tool_deselected)
+        self.tool_rail.fullscreen_requested.connect(self._toggle_fullscreen)
         self.tool_rail.zoom_in_requested.connect(lambda: self.adjust_zoom(10))
         self.tool_rail.zoom_out_requested.connect(lambda: self.adjust_zoom(-10))
         self.tool_rail.rotate_page_cw_requested.connect(lambda: self.rotate_current_or_selected_pages(90))
@@ -783,8 +800,13 @@ class MainWindow(QMainWindow):
 
     def _show_banner(self, message: str) -> None:
         self.banner_label.setText(message)
+        self.banner_label.show()
         self.status_widget.update_state(message)
         self._banner_timer.start(5000)
+
+    def _clear_banner(self) -> None:
+        self.banner_label.clear()
+        self.banner_label.hide()
 
     def set_active_annotation_tool(self, annotation_type: AnnotationType) -> None:
         self.active_annotation_tool = annotation_type
@@ -1174,7 +1196,7 @@ class MainWindow(QMainWindow):
     def _refresh_title(self) -> None:
         state = self.document_manager.state
         dirty = "*" if state.is_dirty else ""
-        self.setWindowTitle(f"{dirty}{state.display_name} - PDF App MVP")
+        self.setWindowTitle(f"{dirty}{state.display_name} - MyLeaflet")
         self.status_widget.update_page_status(state.current_page, state.page_count)
         self.status_widget.update_zoom(state.zoom_percent)
 

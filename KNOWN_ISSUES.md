@@ -12,7 +12,7 @@
   - The current desktop MVP includes highlight and underline only, with limited editing/management depth by design.
 
 - Packaging is still preview-level
-  - The macOS packaging path is suitable for local/manual preview builds, but codesigning, notarization, and installer-level polish are still future work.
+  - The macOS packaging path is suitable for local and manual preview builds, but codesigning, notarization, and installer-level polish remain future work.
 
 - Release readiness still depends on manual smoke checks
   - The repo includes a practical smoke checklist, but there is not yet a full automated desktop release validation pipeline.

@@ -31,7 +31,7 @@ PYINSTALLER_CONFIG_DIR="$PYI_CONFIG_DIR" \
 
 echo
 echo "Build complete."
-echo "App bundle: $ROOT_DIR/dist/PDF App MVP.app"
+echo "App bundle: $ROOT_DIR/dist/MyLeaflet.app"
 echo "Smoke checklist: $ROOT_DIR/MINI_LAUNCH_SMOKE_CHECKLIST.md"
 echo "Open for manual preview testing with:"
-echo "  open \"$ROOT_DIR/dist/PDF App MVP.app\""
+echo "  open \"$ROOT_DIR/dist/MyLeaflet.app\""

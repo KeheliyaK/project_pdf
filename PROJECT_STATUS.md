@@ -2,11 +2,19 @@
 
 ## Project name
 
-PDF App MVP
+MyLeaflet
 
 ## Current phase
 
 Phase W2 - Web foundation vertical slice
+
+## Mini Launch Status (v0.2)
+
+- Desktop MVP prepared for mini launch
+- Version updated to v0.2 under MyLeaflet branding
+- Core functionality stable
+- UI baseline finalized for this release
+- No further feature changes in this release cycle
 
 ## Current status
 
